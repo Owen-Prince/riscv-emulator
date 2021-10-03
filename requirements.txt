@@ -1,0 +1,4 @@
+###### Requirements ######
+struct
+glob
+pyelftools==0.27

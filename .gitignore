@@ -1,0 +1,7 @@
+.*.swp
+riscv-tests
+test-cache/*
+__pycache__/*
+test.py
+log.txt
+settings.json
