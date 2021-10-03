@@ -55,6 +55,7 @@ class Funct3(Enum):
     OR = ORI = 0b110
     AND = ANDI = 0b111
 
+    ECALL = 0b000
     CSRRW   = 0b001
     CSRRS   = 0b010
     CSRRC   = 0b011
@@ -170,8 +171,8 @@ class Utils():
             (Ops.OP, Funct3.AND) : "AND",
 
             (Ops.MISC, Funct3.ADD) : "FENCE",
-            (Ops.SYSTEM, Funct3.ADD) : "ECALL/EBREAK",
 
+            (Ops.SYSTEM, Funct3.ADD) : "ECALL/EBREAK",
             (Ops.SYSTEM, Funct3.CSRRW)  : "CSRRW",
             (Ops.SYSTEM, Funct3.CSRRS)  : "CSRRS",
             (Ops.SYSTEM, Funct3.CSRRC)  : "CSRRC",
@@ -180,6 +181,7 @@ class Utils():
             (Ops.SYSTEM, Funct3.CSRRCI) : "CSRRCI"
         }
         return opname_dict[(op, f3)]
+
 
     @staticmethod
     def gib(x, s, e):

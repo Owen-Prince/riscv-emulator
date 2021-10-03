@@ -2,9 +2,26 @@ from os import stat
 from cpu_types import Ops, Funct3, Aluop, Utils
 
 class Decode(Utils):
+    """
+    opcode
+    rd
+    funct3
+    rs1
+    rs2
+    funct7
 
-    def __init__(self, ins):
+    imm_i -> 12b for i type, JALR, load
+    imm_i_unsigned: ^
+    imm_s -> 12b for stores
+    imm_b -> 12b for branches
+    imm_u -> normal 20b for LUI and AUIPC
+    imm_j -> weird 20b for j and jal
+
+    aluop_d
+    """
+    def __init__(self, ins, pc):
         self.ins = ins
+        self.pc = pc
         self.opcode = Ops(self.gibi(6, 0))
         self.rd     = self.gibi(11, 7)
         self.funct3 = Funct3(self.gibi(14, 12))
@@ -27,7 +44,7 @@ class Decode(Utils):
         # ins = "%x" % self.ins
         if self.opcode == Ops.IMM:
             return (f'0x{self.zext(self.ins)} - '
-                f'{opname:6} '
+                f'{self.opname:6} '
                 f'r{self.rd}, '
                 f'r{self.rs1}  '
                 f'0x{self.gibi(31, 20):x}'
@@ -40,6 +57,13 @@ class Decode(Utils):
                 f'0x{self.zext(self.imm_u)}'
                 )
         elif self.opcode == Ops.BRANCH:
+            return (f'0x{self.zext(self.ins)} - '
+                f'{self.opname:6} '
+                f'r{self.rs1}, '
+                f'r{self.rs2} '
+                f'0x{self.zext(self.imm_b, 4)}'
+                )
+        elif self.opcode == Ops.SYSTEM:
             return (f'0x{self.zext(self.ins)} - '
                 f'{self.opname:6} '
                 f'r{self.rs1}, '

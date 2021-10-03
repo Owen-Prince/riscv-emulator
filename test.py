@@ -45,7 +45,7 @@ class TestUtils(unittest.TestCase):
         ["AND",   0x0005f533,      Aluop.AND],
     ])
     def test_get_aluop_d(self, name, ins, aluop):
-        ins_d = Decode(ins)
+        ins_d = Decode(ins, 0x0)
         self.assertEqual(ins_d.aluop_d, aluop)
 
 
@@ -70,11 +70,16 @@ class TestExecute(unittest.TestCase):
         self.assertEqual(Execute.ALU(aluop, a, b), expected)
 
 
+# class TestFetch(unittest.TestCase):
+#     @parameterized.expand([
+#         ["AUIPC",  Ops.AUIPC, Funct3.ADD, 0xa, 0xb, 0x15],
+#     ])
+#     testOp(self, name, aluop):
 
 
 class TestDecodeMethods(unittest.TestCase):
     def setUp(self):
-        self.d = Decode(0x0)
+        self.d = Decode(0x0, 0x0)
 
     def test_BEQ(self):
         self.d.funct3 = Funct3.BEQ
