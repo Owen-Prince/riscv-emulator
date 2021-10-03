@@ -1,15 +1,7 @@
-from cpu_types import Ops, Funct3, opname
+from os import stat
+from cpu_types import Ops, Funct3, Aluop, Utils
 
-class Decode():
-    ins = 0b0
-    ins = 0b0
-    opcode = 0b0
-    rd = 0b0
-    funct3 = 0b0
-    rs1 = 0b0
-    rs2 = 0b0
-    funct7 = 0b0
-
+class Decode(Utils):
 
     def __init__(self, ins):
         self.ins = ins
@@ -27,23 +19,40 @@ class Decode():
         self.imm_j = self.sign_extend((self.gibi(30, 21) << 1) | (self.gibi(21, 20) << 11) | (self.gibi(19, 12) << 12) | (self.gibi(32, 31) << 20), 21)
         self.imm_i_unsigned = self.gibi(31, 20)
 
+        self.opname = self.get_opname(self.opcode, self.funct3)
+        self.aluop_d = self.get_aluop_d(self.funct3, self.funct7)
+
+
     def __str__(self):
-        ins = "%x" % self.ins
-        return (f'0x{ins.zfill(8)} - '
-                f'{opname[(Ops(self.opcode), Funct3(self.funct3))]:6} '
+        # ins = "%x" % self.ins
+        if self.opcode == Ops.IMM:
+            return (f'0x{self.zext(self.ins)} - '
+                f'{opname:6} '
+                f'r{self.rd}, '
+                f'r{self.rs1}  '
+                f'0x{self.gibi(31, 20):x}'
+                )
+        elif self.opcode == Ops.LUI:
+            return (f'0x{self.zext(self.ins)} - '
+                f'{self.opname:6} '
+                f'r{self.rd}, '
+                f'    '
+                f'0x{self.zext(self.imm_u)}'
+                )
+        elif self.opcode == Ops.BRANCH:
+            return (f'0x{self.zext(self.ins)} - '
+                f'{self.opname:6} '
+                f'r{self.rs1}, '
+                f'r{self.rs2} '
+                f'0x{self.zext(self.imm_b, 4)}'
+                )
+        else:
+            return (f'0x{self.zext(self.ins)} - '
+                f'{self.opname:6} '
                 f'r{self.rd}, '
                 f'r{self.rs1}, '
                 f'r{self.rs2}'
                 )
-
-    def gibi(self, s, e):
-        return (self.ins >> e) & ((1 << (s - e + 1))-1)
-
-    def sign_extend(self, x, l):
-        if x >> (l-1) == 1:
-            return -((1 << l) - x)
-        else:
-            return x
 
     def resolve_branch(self, rdat1, rdat2):
         if (self.funct3 == Funct3.BEQ):
@@ -55,12 +64,6 @@ class Decode():
         elif (self.funct3 == Funct3.BGE):
             return (rdat1 >= rdat2)
         elif (self.funct3 == Funct3.BLTU):
-            return (self.unsigned(rdat1) < self.unsigned(rdat2))
+            return (Utils.unsigned(rdat1) < Utils.unsigned(rdat2))
         elif (self.funct3 == Funct3.BGEU):
-            return self.unsigned(rdat1) >= self.unsigned(rdat2)
-
-    def unsigned(self, x):
-        if (x >> 31) & 0x1 == 1:
-            return (x ^ 0xFFFFFFFF) + 1
-        else:
-            return x
+            return Utils.unsigned(rdat1) >= Utils.unsigned(rdat2)

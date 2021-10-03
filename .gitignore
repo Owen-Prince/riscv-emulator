@@ -3,4 +3,5 @@ riscv-tests
 test-cache/*
 __pycache__/*
 test.py
-.gitignore
+log.txt
+settings.json

@@ -2,8 +2,9 @@
 import struct
 import glob
 from elftools.elf.elffile import ELFFile
-from cpu_types import Ops, Funct3, opname
-from decode import Decode
+from cpu_types import Ops, Funct3
+from decode_stage import Decode
+from decode_stage import Utils
 
 regfile = [0]*33
 class Regfile:
@@ -19,14 +20,23 @@ class Regfile:
 regfile = Regfile()
 PC = 32
 
-def ALU(aluop, a, b):
-    if(aluop == Funct3.ADD):
-        return a + b
+
+
+
+
 
 
 # 64k at 0x80000000
 memory = b'\x00'*0x10000
 # memory = b'\x00'*0x4000
+
+def wcsr(dat, addr):
+    '''data, address'''
+    global memory
+    memory = memory[:addr] + dat + memory[addr+len(dat):]
+
+def r32csr(addr):
+    return struct.unpack("<I", memory[addr:addr+4])[0]
 
 
 def ws(dat, addr):
@@ -55,6 +65,7 @@ def dump():
     pp += "\n    PC: %08x" % regfile[PC]
     print(''.join(pp))
 
+# def pc_sel(btype):
 
 
 
@@ -78,24 +89,52 @@ def step():
             insaddr = regfile[ins_d.rs1] + gibi(31, 20)
             regfile[ins_d.rd] = r32[insaddr]
 
-    elif (Ops(ins_d.opcode) == Ops.JAL):
+    elif (ins_d.opcode == Ops.JAL):
         regfile[1] = regfile[PC] + 4
         regfile[PC] = (ins_d.imm_j) + regfile[PC]
 
-    elif(Ops(ins_d.opcode) == Ops.IMM):
-        print(ins_d.funct3, regfile[ins_d.rs1], ins_d.imm_i)
+    elif(ins_d.opcode == Ops.IMM):
         regfile[ins_d.rd] = ALU(ins_d.funct3, regfile[ins_d.rs1], ins_d.imm_i)
+
+    elif(ins_d.opcode == Ops.BRANCH):
+        if (ins_d.resolve_branch(regfile[ins_d.rs1], regfile[ins_d.rs2])):
+            regfile[PC] += ins_d.imm_b
+
+    elif(ins_d.opcode == Ops.AUIPC):
+        regfile[PC] += ins_d.imm_u
+
+    elif(ins_d.opcode == Ops.LUI):
+        regfile[ins_d.rd] = ins_d.imm_u
+
+
+    elif(ins_d.opcode == Ops.SYSTEM):
+        # CSRRW reads the old value of the CSR, zero-extends the value to XLEN bits,
+        # then writes it to integer register rd. The initial value in rs1 is written to the CSR
+        regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
+        wcsr(struct.pack("I", regfile[ins_d.rs1]), ins_d.imm_i_unsigned)
+
+
+        # LUI = 0b0110111        # load upper immediate
+
+        # JALR = 0b1100111
+
+        # BRANCH = 0b1100011
+
+        # STORE = 0b0100011
+
+        # OP = 0b0110011
+
+        # MISC = 0b0001111
 
     # elif(ins_d.opcode == Ops.JAL):
     else:
+        dump()
         raise Exception("write op %x" % ins)
-
     regfile[PC] += 4
 
 
 
     return True
-    dump()
 
 
 if __name__ == "__main__":
