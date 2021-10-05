@@ -183,20 +183,26 @@ def step():
 if __name__ == "__main__":
     if not os.path.isdir('test-cache'):
         os.mkdir('test-cache')
-    for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
-        if x.endswith('.dump'):
-            continue
-        with open(x, 'rb') as f:
-            reset()
-            print("test", x)
-            e = ELFFile(f)
-            for s in e.iter_segments():
-                ws(s.header.p_paddr, s.data())
-            with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-                g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
-                #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
-            regfile[PC] = 0x80000000
-            inscnt = 0
-            while step():
-                inscnt += 1
-            print("  ran %d instructions" % inscnt)
+    # for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
+        # if x.endswith('.dump'):
+            # continue
+        # print(x)
+    x = '/mnt/c/Users/Owen/Documents/riscv-torture/output/test'
+    with open(x, 'rb') as f:
+        reset()
+        print("test", x)
+        e = ELFFile(f)
+        for s in e.iter_segments():
+            ws(s.header.p_paddr, s.data())
+            print(s.data())
+        print("here")
+        with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
+            g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
+            #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
+        regfile[PC] = 0x80000000
+        inscnt = 0
+        # while step():
+            # inscnt += 1
+        dump()
+        print("  ran %d instructions" % inscnt)
+    # break
