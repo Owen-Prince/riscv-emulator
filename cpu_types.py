@@ -19,8 +19,8 @@ class Ops(Enum):
 
     OP = 0b0110011
 
-    MISC = 0b0001111
-    SYSTEM = 0b1110011
+    MISC = 0b0001111 # FENCE, FENCE.I
+    SYSTEM = 0b1110011 # CSRRW
 
 
 
@@ -190,3 +190,7 @@ class Utils():
 
     def gibi(self, s, e):
         return (self.ins >> e) & ((1 << (s - e + 1))-1)
+
+class Instr():
+    def __init__(self, instruction):
+        pass

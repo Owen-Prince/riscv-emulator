@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-import struct
-import glob
-from elftools.elf.elffile import ELFFile
-from cpu_types import Ops, Funct3, Utils
-import os
 import binascii
+import glob
+import os
+import struct
 
-from fetch_stage import Fetch
+from elftools.elf.elffile import ELFFile
+
+from cpu_types import Funct3, Ops, Utils
 from decode_stage import Decode
 from execute_stage import Execute
+from fetch_stage import Fetch
 from mem_stage import Mem
 from wb_stage import Wb
 
@@ -23,6 +24,17 @@ class Regfile:
             return
         self.regs[key] = value & 0xFFFFFFFF
 
+class CSregs():
+    def __init__(self):
+        self.regs =  b'\x00'*0x1000
+    def __getitem__(self, key):
+        return self.regs[key << 2]
+    def __setitem__(self, key, value):
+        self.regs[key << 2] = value & 0xFFFFFFFF
+        
+
+    
+
 def reset():
   global regfile, memory
   regfile = Regfile()
@@ -34,7 +46,7 @@ PC = 32
 
 
 # 64k at 0x80000000
-memory = b'\x00'*0x10000
+# memory = b'\x00'*0x10000
 # memory = b'\x00'*0x4000
 
 def wcsr(dat, addr):
@@ -73,7 +85,7 @@ def r32(addr):
 def dump():
     pp = []
     for i in range(32):
-        if i != 0 and i % 8 == 0:
+        if i != 0 and i % 2 == 0:
             pp += "\n"
         pp += " %3s: %08x" % ("x%d" % i, regfile[i])
     pp += "\n    PC: %08x" % regfile[PC]
@@ -139,7 +151,7 @@ def step():
 
 
     elif(ins_d.opcode == Ops.MISC):
-        #TODO
+        #Right now this can just be pass- coherence related
         pass
 
     elif(ins_d.opcode == Ops.LUI):
@@ -159,12 +171,18 @@ def step():
                     # hack for test exit
                     return False
         # if ins_d.funct3 == Funct3.ADD:  #ECALL/EBREAK
-        # if ins_d.funct3 == Funct3.CSRRW:
-        # if ins_d.funct3 == Funct3.CSRRS:
-        # if ins_d.funct3 == Funct3.CSRRC:
-        # if ins_d.funct3 == Funct3.CSRRWI:
-        # if ins_d.funct3 == Funct3.CSRRSI:
-        # if ins_d.funct3 == Funct3.CSRRCI:
+        if ins_d.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
+            pass                        
+        if ins_d.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
+            pass
+        if ins_d.funct3 == Funct3.CSRRC: # reads csr value, writes to rd. initial value treated as a bit mask 
+            pass
+        if ins_d.funct3 == Funct3.CSRRWI: # if rd = x0 then do not read CSR, no side effects
+            pass
+        if ins_d.funct3 == Funct3.CSRRSI: # update csr with 5-bit unsigned immediate, no write to CSR
+            pass
+        if ins_d.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
+            pass
             return False
 
         regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
@@ -187,14 +205,14 @@ if __name__ == "__main__":
         # if x.endswith('.dump'):
             # continue
         # print(x)
-    x = '/mnt/c/Users/Owen/Documents/riscv-torture/output/test'
+    x = 'riscv-tests/isa/rv32ui-p-add'
     with open(x, 'rb') as f:
         reset()
         print("test", x)
         e = ELFFile(f)
         for s in e.iter_segments():
             ws(s.header.p_paddr, s.data())
-            print(s.data())
+            # print(s.data())
         print("here")
         with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
             g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
