@@ -3,6 +3,7 @@ import binascii
 import glob
 import os
 import struct
+import logging
 
 from elftools.elf.elffile import ELFFile
 
@@ -26,11 +27,23 @@ class Regfile:
 
 class CSregs():
     def __init__(self):
-        self.regs =  b'\x00'*0x1000
+        self.modified = {}
+        self.cregs =  b'\x00'*0x1000
     def __getitem__(self, key):
-        return self.regs[key << 2]
-    def __setitem__(self, key, value):
-        self.regs[key << 2] = value & 0xFFFFFFFF
+        addr = key << 2
+        return struct.unpack("<I", self.cregs[addr:addr+4])[0]
+    def __setitem__(self, key, val):
+        addr = key << 2
+        dat = struct.pack("<I", val & 0xFFFFFFFF) 
+        self.cregs = self.cregs[:addr] + dat + self.cregs[addr+len(dat):]
+        self.modified[key] = dat
+        logging.info("0x%s:  %s", key, Utils.zext(struct.unpack('<I', dat)[0]))
+
+    # def __str__(self):
+        # return (f'ustatus: 0x{self.regs[0x00]}\n'
+                # f'uie: 0x{self.regs[0x4 << 2]}\n')
+    # def __str__(self):
+        
         
 
     
@@ -41,31 +54,11 @@ def reset():
   # 16kb at 0x80000000
   memory = b'\x00'*0x4000
 
+memory = b'\x00'*0x4000
 regfile = Regfile()
+csrs = CSregs()
 PC = 32
-
-
-# 64k at 0x80000000
-# memory = b'\x00'*0x10000
-# memory = b'\x00'*0x4000
-
-def wcsr(dat, addr):
-    '''data, address'''
-    global memory
-    memory = memory[:addr] + dat + memory[addr+len(dat):]
-
-def r32csr(addr):
-    return struct.unpack("<I", memory[addr:addr+4])[0]
-
-
-# def ws(dat, addr):
-#     global memory
-# #   addr -= 0x80000000
-#     if addr < 0 or addr >= len(memory):
-#         raise Exception("mem fetch to %x failed" % addr)
-
-#     # assert addr >=0 and addr < len(memory)
-#     memory = memory[:addr] + dat + memory[addr+len(dat):]
+logging.basicConfig(filename='summary.log', filemode='w', level=logging.INFO)
 
 def ws(addr, dat):
   global memory
@@ -102,7 +95,7 @@ def step():
     ins_d = Decode(ins, regfile[PC])
     npc = 0x0
 
-    print("PC: %x --- %s" % (regfile[PC], ins_d))
+    logging.debug("PC: %x --- %s" % (regfile[PC], ins_d))
 
     if(ins_d.opcode == Ops.BRANCH):
         if (ins_d.resolve_branch(regfile[ins_d.rs1], regfile[ins_d.rs2])):
@@ -164,14 +157,17 @@ def step():
 
         if ins_d.funct3 == Funct3.ECALL:
             if ins_d.funct3 == Funct3.ECALL:
-                print("  ecall", regfile[3])
+                # print("  ecall", regfile[3])
                 if regfile[3] > 1:
-                    raise Exception("FAILURE IN TEST, PLZ CHECK")
+                    raise Exception("Failure in test %d" % regfile[3])
                 elif regfile[3] == 1:
-                    # hack for test exit
+                    # tests passed successfully
                     return False
         # if ins_d.funct3 == Funct3.ADD:  #ECALL/EBREAK
         if ins_d.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
+            logging.info("insr: %x", ins_d.ins)
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1]
             pass                        
         if ins_d.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
             pass
@@ -183,16 +179,15 @@ def step():
             pass
         if ins_d.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
             pass
-            return False
 
-        regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
-        wcsr(struct.pack("I", regfile[ins_d.rs1]), ins_d.imm_i_unsigned)
+
+        # regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
+        # wcsr(struct.pack("I", regfile[ins_d.rs1]), ins_d.imm_i_unsigned)
     else:
         dump()
         raise Exception("write op %x" % ins)
 
     regfile[PC] = Fetch.pc_sel(regfile[PC], npc, ins_d.opcode)
-
 
 
     return True
@@ -201,26 +196,23 @@ def step():
 if __name__ == "__main__":
     if not os.path.isdir('test-cache'):
         os.mkdir('test-cache')
-    # for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
-        # if x.endswith('.dump'):
-            # continue
-        # print(x)
-    x = 'riscv-tests/isa/rv32ui-p-add'
-    with open(x, 'rb') as f:
-        reset()
-        print("test", x)
-        e = ELFFile(f)
-        for s in e.iter_segments():
-            ws(s.header.p_paddr, s.data())
-            # print(s.data())
-        print("here")
-        with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-            g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
-            #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
-        regfile[PC] = 0x80000000
-        inscnt = 0
-        # while step():
-            # inscnt += 1
-        dump()
-        print("  ran %d instructions" % inscnt)
-    # break
+    for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
+        if x.endswith('.dump'):
+            continue
+        with open(x, 'rb') as f:
+            reset()
+            logging.debug("test %s", x)
+            e = ELFFile(f)
+            for s in e.iter_segments():
+                ws(s.header.p_paddr, s.data())
+            with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
+                g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
+                #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
+            regfile[PC] = 0x80000000
+            inscnt = 0
+            while step():
+                inscnt += 1
+            # print(csrs)
+            logging.debug("  ran %d instructions" % inscnt)
+        break
+    dump()
