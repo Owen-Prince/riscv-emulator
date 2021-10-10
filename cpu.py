@@ -28,7 +28,7 @@ class Regfile:
 class CSregs():
     def __init__(self):
         self.modified = {}
-        self.cregs =  b'\x00'*0x1000
+        self.cregs =  b'\x00'*0x4000
     def __getitem__(self, key):
         addr = key << 2
         return struct.unpack("<I", self.cregs[addr:addr+4])[0]
@@ -38,7 +38,15 @@ class CSregs():
         self.cregs = self.cregs[:addr] + dat + self.cregs[addr+len(dat):]
         self.modified[key] = dat
         logging.info("0x%s:  %s", key, Utils.zext(struct.unpack('<I', dat)[0]))
+    def print_modified(self):
+        for key, value in self.modified.items():
+            print(f'0x{key:x}:  {Utils.zext(struct.unpack("<I", value)[0]):s}')
+    def __str__(self):
+        s = ""
+        for key, value in self.modified.items():
+            s = s + f'0x{key:x}:  {Utils.zext(struct.unpack("<I", value)[0]):s}\n'
 
+        return s
     # def __str__(self):
         # return (f'ustatus: 0x{self.regs[0x00]}\n'
                 # f'uie: 0x{self.regs[0x4 << 2]}\n')
@@ -163,22 +171,32 @@ def step():
                 elif regfile[3] == 1:
                     # tests passed successfully
                     return False
+        
         # if ins_d.funct3 == Funct3.ADD:  #ECALL/EBREAK
         if ins_d.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
-            logging.info("insr: %x", ins_d.ins)
             regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
             csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1]
-            pass                        
+
         if ins_d.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
-            pass
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1] | csrs[ins_d.imm_i_unsigned]
+
         if ins_d.funct3 == Funct3.CSRRC: # reads csr value, writes to rd. initial value treated as a bit mask 
-            pass
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = ~regfile[ins_d.rs1] & csrs[ins_d.imm_i_unsigned]
+            
         if ins_d.funct3 == Funct3.CSRRWI: # if rd = x0 then do not read CSR, no side effects
-            pass
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = ins_d.rs1
+
         if ins_d.funct3 == Funct3.CSRRSI: # update csr with 5-bit unsigned immediate, no write to CSR
-            pass
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = ins_d.rs1 | csrs[ins_d.imm_i_unsigned]
+
         if ins_d.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
-            pass
+            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
+            csrs[ins_d.imm_i_unsigned] = ~ins_d.rs1 & csrs[ins_d.imm_i_unsigned]
+            
 
 
         # regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
@@ -212,7 +230,7 @@ if __name__ == "__main__":
             inscnt = 0
             while step():
                 inscnt += 1
-            # print(csrs)
             logging.debug("  ran %d instructions" % inscnt)
+            logging.debug(str(csrs))
         break
     dump()
