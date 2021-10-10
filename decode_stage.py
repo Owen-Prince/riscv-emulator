@@ -3,7 +3,6 @@ from os import stat
 
 from cpu_types import Aluop, Funct3, Ops, Utils
 
-PC = 32
 logging.basicConfig(filename='summary.log', filemode='w', level=logging.INFO)
 
 class Decode(Utils):
@@ -87,13 +86,15 @@ class Decode(Utils):
                 f'r{self.rs1}, '
                 f'r{self.rs2}'
                 )
-    def __call__(self, ins):
+    def __call__(self, ins, pc):
         self.ins = ins
+        self.pc = pc
         self.split()
 
     def update_pc(self, pc):
-        self.regfile[PC] = pc
+        # self.regfile[PC] = pc
         self.pc = pc
+
     def update_ins(self, ins):
         self.ins = ins
         self.split()
@@ -120,23 +121,14 @@ class Regfile:
 
     def __init__(self):
         self.regs = [[0x0]*4 for x in range (32)]
-        self.pc = 0
     def __getitem__(self, key):
-        logging.debug(self.regs)
-        if key == PC:
-            return self.pc
-        else:
-            return self.regs[key][0]
+        return self.regs[key][0]
     def __setitem__(self, key, value):
         if key == 0:
             return
-        elif key == PC:
-            self.pc = value
-            logging.debug("pc should be %x --- actual: %x ", value, self.pc)
-        else:
-            self.regs[key][0] = value & 0xFFFFFFFF
-            logging.error(self.regs[key])
-            logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
+        self.regs[key][0] = value & 0xFFFFFFFF
+        logging.error(self.regs[key])
+        logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
     def __str__(self):
         pp = []
         for i in range(32):

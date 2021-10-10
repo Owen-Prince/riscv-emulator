@@ -14,17 +14,34 @@ class Mem():
     def __init__(self):
         self.memory = b'\x00'*0x4000
         self.csrs = CSregs()
+        
+    # def r32(self, addr):
+    #     addr -= 0x80000000
+    #     if addr < 0 or addr >= len(self.memory):
+    #         raise Exception("mem fetch to %x failed" % addr)
+    #     assert addr >=0 and addr < len(self.memory)
+    #     return struct.unpack("<I", self.memory[addr:addr+4])[0]
     def ws(self, addr, dat):
         addr -= 0x80000000
         assert addr >=0 and addr < len(self.memory)
+        print(isinstance(dat, bytes))
+        if isinstance(dat, bytes):
+            dat = Utils.htoi(dat)
+            print("truuue")
         self.memory = self.memory[:addr] + dat + self.memory[addr+len(dat):]
 
-    def r32(self, addr):
-        addr -= 0x80000000
-        if addr < 0 or addr >= len(self.memory):
-            raise Exception("mem fetch to %x failed" % addr)
-        assert addr >=0 and addr < len(self.memory)
-        return struct.unpack("<I", self.memory[addr:addr+4])[0]
+    def __getitem__(self, key):
+        key -= 0x80000000
+        if key < 0 or key >= len(self.memory):
+            raise Exception("mem fetch to %x failed" % key)
+        assert key >=0 and key < len(self.memory)
+        return struct.unpack("<I", self.memory[key:key+4])[0]
+
+    def __setitem__(self, key, val):
+        key -= 0x80000000
+        assert key >=0 and key < len(self.memory)
+        self.memory = self.memory[:key] + val + self.memory[key+len(val):]
+
 
     def load(self, g):
         g.write(b'\n'.join([binascii.hexlify(self.memory[i:i+4][::-1]) for i in range(0,len(self.memory),4)]))
