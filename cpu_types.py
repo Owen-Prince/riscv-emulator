@@ -1,4 +1,5 @@
 from enum import Enum, auto
+import struct
 # RV32I Base Instruction Set
 
 class Ops(Enum):
@@ -190,6 +191,10 @@ class Utils():
 
     def gibi(self, s, e):
         return (self.ins >> e) & ((1 << (s - e + 1))-1)
+
+    @staticmethod
+    def htoi(val):
+        return struct.unpack("<I", val)[0]
 
 class Instr():
     def __init__(self, instruction):

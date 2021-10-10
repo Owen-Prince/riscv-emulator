@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import binascii
 import glob
 import os
 import struct
@@ -15,73 +14,50 @@ from mem_stage import Mem
 from wb_stage import Wb
 
 regfile = [0]*33
-class Regfile:
+
+fetch = Fetch()
+decode = Decode(0x0, 0x0)
+execute = Execute()
+mem = Mem()
+wb = Wb()
+
+class ElementCnt():
     def __init__(self):
-        self.regs = [0]*33
+        self.count = 0
+class Regfile:
+
+    def __init__(self):
+        self.regs = [[0x0]*4 for x in range (32)]
+        self.regs[1][0] = 0x545
+        self.pc = 0
     def __getitem__(self, key):
-        return self.regs[key]
+        logging.error(self.regs)
+        if key == PC:
+            return self.pc
+        else:
+            return self.regs[key][0]
     def __setitem__(self, key, value):
         if key == 0:
             return
-        self.regs[key] = value & 0xFFFFFFFF
-
-class CSregs():
-    def __init__(self):
-        self.modified = {}
-        self.cregs =  b'\x00'*0x4000
-    def __getitem__(self, key):
-        addr = key << 2
-        return struct.unpack("<I", self.cregs[addr:addr+4])[0]
-    def __setitem__(self, key, val):
-        addr = key << 2
-        dat = struct.pack("<I", val & 0xFFFFFFFF) 
-        self.cregs = self.cregs[:addr] + dat + self.cregs[addr+len(dat):]
-        self.modified[key] = dat
-        logging.info("0x%s:  %s", key, Utils.zext(struct.unpack('<I', dat)[0]))
-    def print_modified(self):
-        for key, value in self.modified.items():
-            print(f'0x{key:x}:  {Utils.zext(struct.unpack("<I", value)[0]):s}')
-    def __str__(self):
-        s = ""
-        for key, value in self.modified.items():
-            s = s + f'0x{key:x}:  {Utils.zext(struct.unpack("<I", value)[0]):s}\n'
-
-        return s
-    # def __str__(self):
-        # return (f'ustatus: 0x{self.regs[0x00]}\n'
-                # f'uie: 0x{self.regs[0x4 << 2]}\n')
-    # def __str__(self):
-        
-        
-
-    
+        elif key == PC:
+            self.pc = value
+            logging.debug("pc should be %x --- actual: %x ", value, self.pc)
+        else:
+            self.regs[key][0] = value & 0xFFFFFFFF
+            logging.error(self.regs[key])
+            logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
 
 def reset():
-  global regfile, memory
-  regfile = Regfile()
-  # 16kb at 0x80000000
-  memory = b'\x00'*0x4000
+    global regfile, csrs
+    regfile = Regfile()
+    # 16kb at 0x80000000
 
-memory = b'\x00'*0x4000
+
 regfile = Regfile()
-csrs = CSregs()
 PC = 32
-logging.basicConfig(filename='summary.log', filemode='w', level=logging.INFO)
+logging.basicConfig(filename='summary.log', filemode='w', level=logging.ERROR)
 
-def ws(addr, dat):
-  global memory
-  #print(hex(addr), len(dat))
-  addr -= 0x80000000
-  assert addr >=0 and addr < len(memory)
-  memory = memory[:addr] + dat + memory[addr+len(dat):]
 
-def r32(addr):
-    addr -= 0x80000000
-    # print(hex(addr), len(dat))
-    if addr < 0 or addr >= len(memory):
-        raise Exception("mem fetch to %x failed" % addr)
-    # assert addr >=0 and addr < len(memory)
-    return struct.unpack("<I", memory[addr:addr+4])[0]
 
 def dump():
     pp = []
@@ -97,13 +73,15 @@ def step():
     '''
     Advance clock cycle
     '''
+
+    global mem
     # Instruction Fetch
-    ins = r32(regfile[PC])
+    ins = mem.r32(regfile[PC])
     # Instruction Decodes
     ins_d = Decode(ins, regfile[PC])
     npc = 0x0
 
-    logging.debug("PC: %x --- %s" % (regfile[PC], ins_d))
+    logging.error("PC: %x --- %s" % (regfile[PC], ins_d))
 
     if(ins_d.opcode == Ops.BRANCH):
         if (ins_d.resolve_branch(regfile[ins_d.rs1], regfile[ins_d.rs2])):
@@ -123,32 +101,34 @@ def step():
         npc = (ins_d.imm_j) + regfile[PC]
 
     elif(ins_d.opcode == Ops.IMM):
+        logging.debug("REGREG -- %s:  %x, %x", ins_d.aluop_d,regfile[ins_d.rs1], regfile[ins_d.rs2])
         regfile[ins_d.rd] = Execute.ALU(ins_d.aluop_d, regfile[ins_d.rs1], ins_d.imm_i)
 
     elif(ins_d.opcode == Ops.OP):
+        logging.debug("REGREG -- %s:  %x, %x", ins_d.aluop_d, regfile[ins_d.rs1], regfile[ins_d.rs2])
         regfile[ins_d.rd] = Execute.ALU(ins_d.aluop_d, regfile[ins_d.rs1], regfile[ins_d.rs2])
 
     elif (ins_d.opcode == Ops.LOAD):
         insaddr = regfile[ins_d.rs1] + ins_d.imm_i
         if (ins_d.funct3 == Funct3.LW):
-            regfile[ins_d.rd] = r32[insaddr]
+            regfile[ins_d.rd] = mem.r32[insaddr]
         elif (ins_d.funct3 == Funct3.LH):
-            regfile[ins_d.rd] = Utils.sign_extend(r32[insaddr] & 0xFFFF)
+            regfile[ins_d.rd] = Utils.sign_extend(mem.r32[insaddr] & 0xFFFF)
         elif (ins_d.funct3 == Funct3.LB):
-            regfile[ins_d.rd] = Utils.sign_extend(r32[insaddr] & 0xFF)
+            regfile[ins_d.rd] = Utils.sign_extend(mem.r32[insaddr] & 0xFF)
         elif (ins_d.funct3 == Funct3.LHU):
-            regfile[ins_d.rd] = r32[insaddr] & 0xFFFF
+            regfile[ins_d.rd] = mem.r32[insaddr] & 0xFFFF
         elif (ins_d.funct3 == Funct3.LBU):
-            regfile[ins_d.rd] = r32[insaddr] & 0xFF
+            regfile[ins_d.rd] = mem.r32[insaddr] & 0xFF
 
     elif (ins_d.opcode == Ops.STORE):
         insaddr = regfile[ins_d.rs2] + ins_d.imm_s
         if (ins_d.funct3 == Funct3.SW):
-            ws(regfile[ins_d.rs2] & 0xFFFFFFFF, insaddr)
+            mem.ws(regfile[ins_d.rs2] & 0xFFFFFFFF, insaddr)
         if (ins_d.funct3 == Funct3.SH):
-            ws(regfile[ins_d.rs2] & 0xFFFF, insaddr)
+            mem.ws(regfile[ins_d.rs2] & 0xFFFF, insaddr)
         if (ins_d.funct3 == Funct3.SB):
-            ws(regfile[ins_d.rs2]& 0xFF, insaddr)
+            mem.ws(regfile[ins_d.rs2]& 0xFF, insaddr)
 
 
     elif(ins_d.opcode == Ops.MISC):
@@ -167,39 +147,40 @@ def step():
             if ins_d.funct3 == Funct3.ECALL:
                 # print("  ecall", regfile[3])
                 if regfile[3] > 1:
-                    raise Exception("Failure in test %d" % regfile[3])
+                    # return False
+                    raise Exception("Failure in test %x" % regfile[3])
                 elif regfile[3] == 1:
                     # tests passed successfully
                     return False
         
         # if ins_d.funct3 == Funct3.ADD:  #ECALL/EBREAK
         if ins_d.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1]
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1]
 
         if ins_d.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1] | csrs[ins_d.imm_i_unsigned]
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = regfile[ins_d.rs1] | mem.csrs[ins_d.imm_i_unsigned]
 
         if ins_d.funct3 == Funct3.CSRRC: # reads csr value, writes to rd. initial value treated as a bit mask 
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = ~regfile[ins_d.rs1] & csrs[ins_d.imm_i_unsigned]
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = ~regfile[ins_d.rs1] & mem.csrs[ins_d.imm_i_unsigned]
             
         if ins_d.funct3 == Funct3.CSRRWI: # if rd = x0 then do not read CSR, no side effects
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = ins_d.rs1
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = ins_d.rs1
 
         if ins_d.funct3 == Funct3.CSRRSI: # update csr with 5-bit unsigned immediate, no write to CSR
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = ins_d.rs1 | csrs[ins_d.imm_i_unsigned]
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = ins_d.rs1 | mem.csrs[ins_d.imm_i_unsigned]
 
         if ins_d.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
-            regfile[ins_d.rd] = csrs[ins_d.imm_i_unsigned]
-            csrs[ins_d.imm_i_unsigned] = ~ins_d.rs1 & csrs[ins_d.imm_i_unsigned]
+            regfile[ins_d.rd] = mem.csrs[ins_d.imm_i_unsigned]
+            mem.csrs[ins_d.imm_i_unsigned] = ~ins_d.rs1 & mem.csrs[ins_d.imm_i_unsigned]
             
 
 
-        # regfile[ins_d.rd] = r32csr(ins_d.imm_i_unsigned)
+        # regfile[ins_d.rd] = mem.r32csr(ins_d.imm_i_unsigned)
         # wcsr(struct.pack("I", regfile[ins_d.rs1]), ins_d.imm_i_unsigned)
     else:
         dump()
@@ -212,6 +193,7 @@ def step():
 
 
 if __name__ == "__main__":
+    # global mem
     if not os.path.isdir('test-cache'):
         os.mkdir('test-cache')
     for x in glob.glob("riscv-tests/isa/rv32ui-p-*"):
@@ -219,18 +201,18 @@ if __name__ == "__main__":
             continue
         with open(x, 'rb') as f:
             reset()
-            logging.debug("test %s", x)
+            mem.reset()
+            logging.error("test %s", x)
             e = ELFFile(f)
             for s in e.iter_segments():
-                ws(s.header.p_paddr, s.data())
+                mem.ws(s.header.p_paddr, s.data())
             with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-                g.write(b'\n'.join([binascii.hexlify(memory[i:i+4][::-1]) for i in range(0,len(memory),4)]))
-                #g.write(b'\n'.join([binascii.hexlify(memory[i:i+1]) for i in range(0,len(memory))]))
+                mem.load(g)
             regfile[PC] = 0x80000000
             inscnt = 0
             while step():
                 inscnt += 1
             logging.debug("  ran %d instructions" % inscnt)
-            logging.debug(str(csrs))
-        break
+            logging.debug(str(mem.csrs))
+        # break
     dump()
