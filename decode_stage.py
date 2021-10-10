@@ -120,20 +120,20 @@ class Decode(Utils):
 class Regfile:
 
     def __init__(self):
-        self.regs = [[0x0]*4 for x in range (32)]
+        self.regs = [0x0]*32 
     def __getitem__(self, key):
-        return self.regs[key][0]
+        return self.regs[key]
     def __setitem__(self, key, value):
         if key == 0:
             return
-        self.regs[key][0] = value & 0xFFFFFFFF
+        self.regs[key] = value & 0xFFFFFFFF
         logging.error(self.regs[key])
-        logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
+        logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key])
     def __str__(self):
         pp = []
         for i in range(32):
             if i != 0 and i % 8 == 0:
                 pp += "\n"
-            pp += " %3s: %08x" % ("x%d" % i, self.regs[i][0])
+            pp += " %3s: %08x" % ("x%d" % i, self.regs[i])
         # pp += "\n    PC: %08x" % pc
         return ''.join(pp)
