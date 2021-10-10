@@ -1,5 +1,10 @@
+import logging
 from os import stat
-from cpu_types import Ops, Funct3, Aluop, Utils
+
+from cpu_types import Aluop, Funct3, Ops, Utils
+
+PC = 32
+logging.basicConfig(filename='summary.log', filemode='w', level=logging.INFO)
 
 class Decode(Utils):
     """
@@ -19,9 +24,14 @@ class Decode(Utils):
 
     aluop_d
     """
-    def __init__(self, ins, pc):
+    def __init__(self, ins=0x0, pc=0x0):
         self.ins = ins
         self.pc = pc
+        self.regfile = Regfile()
+
+        self.split()
+
+    def split(self):
         self.opcode = Ops(self.gibi(6, 0))
         self.rd     = self.gibi(11, 7)
         self.funct3 = Funct3(self.gibi(14, 12))
@@ -77,6 +87,16 @@ class Decode(Utils):
                 f'r{self.rs1}, '
                 f'r{self.rs2}'
                 )
+    def __call__(self, ins):
+        self.ins = ins
+        self.split()
+
+    def update_pc(self, pc):
+        self.regfile[PC] = pc
+        self.pc = pc
+    def update_ins(self, ins):
+        self.ins = ins
+        self.split()
 
     def resolve_branch(self, rdat1, rdat2):
         if (self.funct3 == Funct3.BEQ):
@@ -91,3 +111,37 @@ class Decode(Utils):
             return (Utils.unsigned(rdat1) < Utils.unsigned(rdat2))
         elif (self.funct3 == Funct3.BGEU):
             return Utils.unsigned(rdat1) >= Utils.unsigned(rdat2)
+
+    def reset(self):
+        self.regs = Regfile()
+
+
+class Regfile:
+
+    def __init__(self):
+        self.regs = [[0x0]*4 for x in range (32)]
+        self.pc = 0
+    def __getitem__(self, key):
+        logging.debug(self.regs)
+        if key == PC:
+            return self.pc
+        else:
+            return self.regs[key][0]
+    def __setitem__(self, key, value):
+        if key == 0:
+            return
+        elif key == PC:
+            self.pc = value
+            logging.debug("pc should be %x --- actual: %x ", value, self.pc)
+        else:
+            self.regs[key][0] = value & 0xFFFFFFFF
+            logging.error(self.regs[key])
+            logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
+    def __str__(self):
+        pp = []
+        for i in range(32):
+            if i != 0 and i % 8 == 0:
+                pp += "\n"
+            pp += " %3s: %08x" % ("x%d" % i, self.regs[i][0])
+        # pp += "\n    PC: %08x" % pc
+        return ''.join(pp)
