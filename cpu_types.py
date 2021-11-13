@@ -79,7 +79,12 @@ class Aluop(Enum):
     OR = auto()
     AND = auto()
 
+
+
+
 class Utils():
+
+
     @staticmethod
     def zext(s, w=8):
         if (len(("%x" % s)) < w):

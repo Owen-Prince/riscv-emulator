@@ -9,8 +9,6 @@ class Mem():
     ws(addr, dat)
     r32(addr)
     """
-
-
     def __init__(self):
         self.memory = b'\x00'*0x4000
         self.csrs = CSregs()
@@ -27,7 +25,7 @@ class Mem():
         print(isinstance(dat, bytes))
         if isinstance(dat, bytes):
             dat = Utils.htoi(dat)
-            print("truuue")
+            print("true")
         self.memory = self.memory[:addr] + dat + self.memory[addr+len(dat):]
 
     def __getitem__(self, key):
@@ -63,12 +61,12 @@ class CSregs():
         self.cregs = self.cregs[:addr] + dat + self.cregs[addr+len(dat):]
         self.modified[key] = dat
         logging.debug("0x%s:  %s", key, Utils.zext(Utils.htoi(dat)))
-    def print_modified(self):
-        for key, value in self.modified.items():
-            print(f'0x{key:x}:  {Utils.zext(Utils.htoi(value)):s}')
     def __str__(self):
         s = ""
         for key, value in self.modified.items():
             s = s + f'0x{key:x}:  {Utils.zext(Utils.htoi(value)):s}\n'
-
         return s
+
+    def print_modified(self):
+        for key, value in self.modified.items():
+            print(f'0x{key:x}:  {Utils.zext(Utils.htoi(value)):s}')

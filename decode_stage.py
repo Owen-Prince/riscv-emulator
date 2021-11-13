@@ -86,10 +86,14 @@ class Decode(Utils):
                 f'r{self.rs1}, '
                 f'r{self.rs2}'
                 )
-    def __call__(self, ins, pc):
+
+    def update(self, ins, pc):
         self.ins = ins
         self.pc = pc
         self.split()
+
+    def tick():
+        pass
 
     def update_pc(self, pc):
         # self.regfile[PC] = pc
@@ -127,7 +131,7 @@ class Regfile:
         if key == 0:
             return
         self.regs[key][0] = value & 0xFFFFFFFF
-        logging.error(self.regs[key])
+        logging.debug(self.regs[key])
         logging.debug("reg %d should be %x --- actual: %x ", key, value, self.regs[key][0])
     def __str__(self):
         pp = []

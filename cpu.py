@@ -17,7 +17,7 @@ mem = Mem()
 
 ins_f = InsFetch(mem)
 de = Decode()
-execute = Execute()
+ex = Execute()
 wb = Wb()
 
 class ElementCnt():
@@ -32,10 +32,12 @@ def step():
     Advance clock cycle
     '''
 
-    global mem, de, ins_f
+    global mem, de, ins_f, ex, wb
     # Instruction InsFetch
-    ins = ins_f()
-    de(ins, ins_f.pc)
+    ins = ins_f.fetch()
+    de.update(ins, ins_f.pc)
+
+    # ex
     # de.ins = ins
     # Instruction Decodes
     npc = 0x0
@@ -60,10 +62,10 @@ def step():
         npc = (de.imm_j) + de.pc
 
     elif(de.opcode == Ops.IMM):
-        de.regfile[de.rd] = Execute.ALU(de.aluop_d, de.regfile[de.rs1], de.imm_i)
+        de.regfile[de.rd] = ex.ALU(de.aluop_d, de.regfile[de.rs1], de.imm_i)
 
     elif(de.opcode == Ops.OP):
-        de.regfile[de.rd] = Execute.ALU(de.aluop_d, de.regfile[de.rs1], de.regfile[de.rs2])
+        de.regfile[de.rd] = ex.ALU(de.aluop_d, de.regfile[de.rs1], de.regfile[de.rs2])
 
     elif (de.opcode == Ops.LOAD):
         insaddr = de.regfile[de.rs1] + de.imm_i
@@ -138,7 +140,7 @@ def step():
     else:
         raise Exception("write op %x" % ins)
 
-    ins_f.set_pc(npc, de.opcode)
+    ins_f.set_pc(npc, de.opcode, 0)
     de.update_pc(ins_f.pc)
 
 
@@ -155,7 +157,7 @@ if __name__ == "__main__":
         with open(x, 'rb') as f:
             mem.reset()
             de.reset()
-            logging.info("test %s", x)
+            logging.info("test %s\n", x)
             e = ELFFile(f)
             for s in e.iter_segments():
                 mem[s.header.p_paddr] = s.data()
