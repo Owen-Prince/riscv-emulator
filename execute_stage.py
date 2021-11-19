@@ -1,7 +1,7 @@
 from cpu_types import Funct3, Utils, Aluop
-# from
+from pipeline_stages import PipelineStage, decode_execute, execute_mem
 
-class Execute():
+class Execute(PipelineStage):
     @staticmethod
     def ALU(aluop, a, b):
         if  (aluop == Aluop.ADD):  return a + b
@@ -20,3 +20,5 @@ class Execute():
 
         else:
             raise Exception("alu op %s" % Funct3(aluop))
+
+    

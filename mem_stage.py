@@ -38,6 +38,7 @@ class Mem():
     def __setitem__(self, key, val):
         key -= 0x80000000
         assert key >=0 and key < len(self.memory)
+        
         self.memory = self.memory[:key] + val + self.memory[key+len(val):]
 
 

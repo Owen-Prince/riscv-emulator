@@ -3,7 +3,7 @@ import struct
 from cpu_types import Utils
 
 
-class PipelineStage(Utils):
+class PipelineStage():
     def __init__(self):
         self.input = None
         self.output = None
@@ -19,13 +19,15 @@ class PipelineStage(Utils):
         else:
             self.out = self.input
 
-class f_de():
+class fetch_decode(PipelineStage):
     def __init__(self):
         self.mem = None
         self.pc = None
         self.ins = None
+        self.branch_pc = None
+        self.mispredict = None
 
-class de_ex():
+class decode_execute(PipelineStage):
     def __init__(self):
         self.ins = None
         self.pc = None
@@ -44,7 +46,7 @@ class de_ex():
         self.opname = None
         self.aluop_d = None
 
-class ex_mem():
+class execute_mem(PipelineStage):
     def __init__(self):
         self.rdat1 = None
         self.rdat2 = None
@@ -54,14 +56,14 @@ class ex_mem():
         self.store_data = None
         self.result = None
 
-class mem_wb():
+class mem_writeback(PipelineStage):
     def __init__(self):
         self.load_data = None
         self.rd = None
         self.wen = None
         self.result = None
 
-class wb_de():
+class writeback_decode(PipelineStage):
     def __init__(self):
         self.load_data = None
         self.rd = None

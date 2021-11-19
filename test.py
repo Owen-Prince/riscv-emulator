@@ -1,9 +1,15 @@
 import struct
+
+from elftools.construct import Byte
+from elftools.elf.elffile import ELFFile
 from decode_stage import Decode
 from cpu_types import Ops, Funct3, Utils, Aluop
 import unittest
+import binascii
 from parameterized import parameterized
 from execute_stage import Execute
+from fetch_stage import InsFetch
+from mem_stage import Mem
 
 
 class TestUtils(unittest.TestCase):
@@ -118,7 +124,56 @@ class TestDecodeMethods(unittest.TestCase):
         self.assertEqual(self.d.resolve_branch(3,2),   True)
         self.assertEqual(self.d.resolve_branch(3,3),   True)
 
-# class TestExecuteMethods(unittest.TestCase):
+class TestFetch(unittest.TestCase):
+    def setUp(self):
+        self.mem = Mem()
+        self.ifetch = InsFetch(self.mem)
+
+
+    def init_mem(self, filename):
+        with open(filename, 'rb') as f:
+            e = ELFFile(f)
+            for s in e.iter_segments():
+                self.mem[s.header.p_paddr] =  s.data()
+            with open("test-cache/%s" % filename.split("/")[-1], "wb") as g:
+                g.write(b'\n'.join([binascii.hexlify(self.mem[i:i+4][::-1]) for i in range(0,len(self.mem),4)]))
+    
+    # tobytes = lambda x : bytes([int(x[i:i+8], 2) for i in range(0, len(x), 8)])
+    @parameterized.expand([
+        ["rv32ui-p-add", "rv32ui-p-add"]
+    ])
+    def testUpdate(self, name, filename):
+        self.ifetch.update(self.mem, 0x80000000, False)
+        self.ifetch.tick()
+        self.assertEqual(self.ifetch.pc, 0x80000004)
+
+    @parameterized.expand([
+        ["rv32ui-p-add", "rv32ui-p-add"]
+    ])
+    def testBranch(self, name, filename):
+        self.ifetch.update(self.mem, 0x8000000A, True)
+        self.ifetch.tick()
+        self.assertEqual(self.ifetch.pc, 0x8000000A)
+
+# def init_mem(self):
+#     for x in glob.glob("riscv-tests/isa/"+"rv32ui-p-*"):
+#     if x.endswith('.dump'):
+#         continue
+#     with open(x, 'rb') as f:
+#         mem.reset()
+#         de.reset()
+#         logging.info("test %s\n", x)
+#         e = ELFFile(f)
+#         for s in e.iter_segments():
+#             mem[s.header.p_paddr] = s.data()
+#         with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
+#             mem.load(g)
+#         ins_f.pc = (0x80000000) 
+
+#         inscnt = 0
+#         while step():
+#             inscnt += 1
+
 
 
 if __name__ == '__main__':
