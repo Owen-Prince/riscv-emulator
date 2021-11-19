@@ -10,10 +10,10 @@ from cpu_types import Funct3, Ops, Utils
 from fetch_stage import InsFetch
 from decode_stage import Decode
 from execute_stage import Execute
-from mem_stage import Mem
+from mem_stage import Memory
 from wb_stage import Wb
 
-mem = Mem()
+mem = Memory()
 
 ins_f = InsFetch(mem)
 de = Decode()

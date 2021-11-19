@@ -133,7 +133,7 @@ class Utils():
     @staticmethod
     def get_opname(op, f3):
         opname_dict = {
-            (Ops.NOP, Funct3.JALR) : "NOP",
+            # (Ops.NOP, Funct3.JALR) : "NOP",
             (Ops.LUI, Funct3.ADD) : "LUI",
             (Ops.AUIPC, Funct3.ADD): "AUIPC",
             (Ops.JAL, Funct3.ADD) : "JAL",

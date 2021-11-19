@@ -42,15 +42,37 @@ class Decode(PipelineStage):
     imm_u -> normal 20b for LUI and AUIPC
     imm_j -> weird 20b for j and jal
 
-    aluop_d
+    aluop
     """
     def __init__(self, ins=0x0, pc=0x0):
+        self.next = Next()
         self.ins = ins
         self.pc = pc
         self.regfile = Regfile()
         self.branch_target = 0x0
         self.mispredict = False
-        self.split()
+
+        self.opcode         = 0
+        self.rd             = 0
+        self.funct3         = 0
+        self.rs1            = 0
+        self.rs2            = 0
+        self.funct7         = 0
+        self.imm_i          = 0
+        self.imm_s          = 0
+        self.imm_b          = 0
+        self.imm_u          = 0
+        self.imm_j          = 0
+        self.imm_i_unsigned = 0
+        self.opname         = 0
+        self.aluop          = 0
+        # self.split()
+
+        self.next.wen = 0
+        self.ls_addr = 0x0 #address going to stores
+        # self.store_data = 0x0 #input
+        self.next.wdat = 0x0 #output
+        self.next.wsel = 0x0 #output
 
     def split(self):
         self.opcode = Ops(Utils.gib(self.ins, 6, 0))
@@ -63,17 +85,12 @@ class Decode(PipelineStage):
         self.imm_i = Utils.sign_extend(Utils.gib(self.ins, 31, 20), 12)
         self.imm_s = Utils.sign_extend(Utils.gib(self.ins, 11, 7) | (Utils.gib(self.ins, 31, 25) << 5), 12)
         self.imm_b = Utils.sign_extend((Utils.gib(self.ins, 11, 8) << 1) | (Utils.gib(self.ins, 30, 25) << 5) | (Utils.gib(self.ins, 8, 7) << 11) | (Utils.gib(self.ins, 32, 31) << 12), 13)
-        self.imm_u  = Utils.gib(self.ins, 31, 12) << 12
+        self.imm_u = Utils.gib(self.ins, 31, 12) << 12
         self.imm_j = Utils.sign_extend((Utils.gib(self.ins, 30, 21) << 1) | (Utils.gib(self.ins, 21, 20) << 11) | (Utils.gib(self.ins, 19, 12) << 12) | (Utils.gib(self.ins, 32, 31) << 20), 21)
         self.imm_i_unsigned = Utils.gib(self.ins, 31, 20)
 
         self.opname = Utils.get_opname(self.opcode, self.funct3)
-        self.aluop_d = Utils.get_aluop_d(self.funct3, self.funct7)
-
-
-
-
-
+        self.aluop = Utils.get_aluop_d(self.funct3, self.funct7)
 
     def __str__(self):
         # ins = "%x" % self.ins
@@ -113,17 +130,21 @@ class Decode(PipelineStage):
                 f'r{self.rs2}'
                 )
 
-    def update(self, ins, pc):
-        self.ins = ins
-        self.pc = pc
-        self.split()
-        self.rdat1 = self.regfile[self.rs1]
-        self.rdat2 = self.regfile[self.rs1]
+    def update(self, ifs, wb):
+        self.ins = ifs.ins
+        self.pc  = ifs.pc
+        self.next.wen  = wb.wen
+        self.next.wdat = wb.wdat
+        self.next.wsel   = wb.rd
         
 
-
-    def tick():
-        pass
+    def tick(self):
+        if self.next.wen:
+            self.regfile[self.next.wsel] = self.next.wdat
+        self.rdat1 = self.regfile[self.rs1]
+        self.rdat2 = self.regfile[self.rs2]
+        self.split()
+        self.do_control()
 
     def resolve_branch(self, rdat1, rdat2):
         if (self.funct3 == Funct3.BEQ):
@@ -142,49 +163,55 @@ class Decode(PipelineStage):
     def reset(self):
         self.regs = Regfile()
 
-
-
-    def control(self):
+    def do_control(self):
         if(self.opcode == Ops.BRANCH):
-            if (self.resolve_branch(self.regfile[self.rs1], self.regfile[self.rs2])):
+            if (self.resolve_branch(self.regfile[self.rs1], self.regfile[self.rs2]) == False):
                 self.branch_target = self.pc + self.imm_b
                 self.mispredict = True
             else:
                 self.branch_target = self.pc + 4
-
+        elif (self.opcode == Ops.IMM):
+            self.wen = True
         elif(self.opcode == Ops.AUIPC):
-            self.wdata = self.pc + self.imm_u
+            self.wdat = self.pc + self.imm_u
+            self.wen = True
 
         elif (self.opcode == Ops.JALR):
             npc = (self.imm_i + self.regfile[self.rs1]) & 0xFFFFFFFE
-            self.regfile[self.rd] = self.pc + 4
+            self.wdat = self.pc + 4
+            self.wen = True
 
         elif (self.opcode == Ops.JAL):
-            self.regfile[self.rd] = self.pc + 4
+            self.wdat = self.pc + 4
             npc = (self.imm_j) + self.pc
+            self.wen = True
 
         elif (self.opcode == Ops.LOAD):
-            self.insaddr = self.regfile[self.rs1] + self.imm_i
+            self.ls_addr = self.regfile[self.rs1] + self.imm_i
+            self.wen = True
 
         elif (self.opcode == Ops.STORE):
-            insaddr = self.regfile[self.rs2] + self.imm_s
+            self.ls_addr = self.regfile[self.rs2] + self.imm_s
             if (self.funct3 == Funct3.SW):
-                self.store_data = self.regfile[self.rs2] & 0xFFFFFFFF
+                self.wdat = self.regfile[self.rs2] & 0xFFFFFFFF
             if (self.funct3 == Funct3.SH):
-                self.store_data = self.regfile[self.rs2] & 0xFFFF
+                self.wdat = self.regfile[self.rs2] & 0xFFFF
             if (self.funct3 == Funct3.SB):
-                self.store_data = self.regfile[self.rs2] & 0xFF
-
+                self.wdat = self.regfile[self.rs2] & 0xFF
+            self.wen = False
 
         elif(self.opcode == Ops.MISC):
+            self.wen = False
         #Right now this can just be pass- coherence related
             pass
 
         elif(self.opcode == Ops.LUI):
-            self.wdata = self.imm_u
+            self.wen = True
+            self.wdat = self.imm_u
 
 
         elif(self.opcode == Ops.SYSTEM):
+            self.wen = False
         # CSRRW reads the old value of the CSR, zero-extends the value to XLEN bits,
         # then writes it to integer register rd. The initial value in rs1 is written to the CSR
 
@@ -216,3 +243,9 @@ class Decode(PipelineStage):
             
         else:
             raise Exception("write op %x" % self.ins)
+
+class Next():
+    pc = None;
+    wen = None
+    wdat = None
+    

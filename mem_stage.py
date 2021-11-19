@@ -1,17 +1,21 @@
 import struct
 import binascii
 import logging
-from cpu_types import Utils
+from cpu_types import Ops, Utils
 
 
-class Mem():
+
+
+
+
+
+class Memory():
     """
     ws(addr, dat)
     r32(addr)
     """
     def __init__(self):
         self.memory = b'\x00'*0x4000
-        self.csrs = CSregs()
         
     # def r32(self, addr):
     #     addr -= 0x80000000
@@ -41,12 +45,10 @@ class Mem():
         
         self.memory = self.memory[:key] + val + self.memory[key+len(val):]
 
-
     def load(self, g):
         g.write(b'\n'.join([binascii.hexlify(self.memory[i:i+4][::-1]) for i in range(0,len(self.memory),4)]))
         
     def reset(self):
-        self.csrs.cregs =  b'\x00'*0x4000
         self.memory =  b'\x00'*0x4000
 
 class CSregs():
@@ -71,3 +73,31 @@ class CSregs():
     def print_modified(self):
         for key, value in self.modified.items():
             print(f'0x{key:x}:  {Utils.zext(Utils.htoi(value)):s}')
+
+    def reset(self):
+        self.csrs.cregs =  b'\x00'*0x4000
+
+
+
+class MemStage():
+    def __init__(self):
+        self.memory = Memory()
+        self.csrs = CSregs()
+
+    def reset(self):
+        self.memory.reset()
+        self.csrs.reset()
+
+    def update(self, ex):
+        self.wdat    = ex.wdat
+        self.wen     = ex.wen
+        self.opcode  = ex.opcode
+        self.ls_addr = ex.ls_addr
+        self.rd = ex.rd
+    def tick(self):
+        if self.opcode == Ops.LOAD:
+            self.wdat = self.memory[self.ls_addr]
+        elif self.opcode == Ops.STORE:
+            self.memory[self.ls_addr] = self.wdat
+
+    

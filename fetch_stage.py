@@ -9,11 +9,8 @@ from pipeline_stages import decode_execute, fetch_decode,  PipelineStage
 
 class InsFetch(PipelineStage):
 
-    def __init__(self, mem, pc=0x80000000):
-        self.input = fetch_decode()
-        self.output = decode_execute()
-
-        self.mem = mem
+    def __init__(self, memory=None, pc=0x80000000):
+        self.memory = memory
         self.pc = pc
         self.ins = 0x0
         self.branch_target = 0xBAD1BAD1
@@ -22,7 +19,7 @@ class InsFetch(PipelineStage):
 
     def fetch(self):
         logging.debug("pc: %x", self.pc)
-        ins = self.mem[self.pc]
+        ins = self.memory[self.pc]
         self.opcode = Ops(Utils.gib(ins, 6, 0))
         self.branch_target = Utils.sign_extend(Utils.gib(self.ins, 15, 0), 16)
         logging.debug("branch target: %s", self.branch_target)
@@ -37,9 +34,9 @@ class InsFetch(PipelineStage):
         self.ins = self.fetch()
         # self.ins = 
 
-    def update(self, mem, correct_branch_target, mispredict):
-        self.branch_target = correct_branch_target
-        self.mispredict = mispredict
+    def update(self, memory, de):
+        self.branch_target = de.correct_branch_target
+        self.mispredict = de.mispredict
 
         # if (stall): return
         
