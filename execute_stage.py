@@ -1,22 +1,39 @@
+import logging
 from cpu_types import Funct3, Ops, Utils, Aluop
-from pipeline_stages import PipelineStage, decode_execute, execute_mem
+from PipelineStage import PipelineStage
 
 class Execute(PipelineStage):
 
     def __init__(self):
-        pass
+        super().__init__()
+
+        self.aluop    = 0
+        self.rdat1    = 0
+        self.rdat2    = 0
+        self.rs1      = 0
+        self.rs2      = 0
+        self.wdat     = 0
+        self.wen      = 0
+        self.opcode   = 0
+        self.ls_addr  = 0
+        self.rd       = 0
 
     def update(self, de):
-        self.aluop = de.aluop
-        self.rdat1 = de.rdat1
-        self.rdat2 = de.rdat2
-        self.wdat  = de.wdat
-        self.wen   = de.wen
-        self.opcode = de.opcode
-        self.ls_addr   = de.ls_addr
-        self.rd = de.rd
+        super().update(de)
+        self.aluop   = de.aluop
+        self.rdat1   = de.rdat1
+        self.rdat2   = de.rdat2
+        self.rs1     = de.rs1
+        self.rs2     = de.rs2
+        self.wdat    = de.wdat
+        self.wen     = de.wen
+        self.opcode  = de.opcode
+        self.ls_addr = de.ls_addr
+        self.rd      = de.rd
+        logging.info("EXECUTE:   %s", self)
 
     def tick(self):
+        if self.ins == -1: return
         if (self.opcode == Ops.IMM):
             self.wdat = self.ALU(self.aluop, self.rdat1, self.rdat2)
                 

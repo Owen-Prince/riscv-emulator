@@ -2,10 +2,12 @@ import logging
 from os import stat
 
 from cpu_types import Aluop, Funct3, Ops, Utils
-from pipeline_stages import PipelineStage
+from PipelineStage import PipelineStage
 
 logging.basicConfig(filename='summary.log', filemode='w', level=logging.INFO)
-
+class ProgramExit(Exception):
+    """sysexit reached"""
+    pass
 class Regfile:
 
     def __init__(self):
@@ -44,17 +46,18 @@ class Decode(PipelineStage):
 
     aluop
     """
-    def __init__(self, ins=0x0, pc=0x0):
+    def __init__(self, ins=-1, pc=0x0):
+        super().__init__()
         self.next = Next()
-        self.ins = ins
+        self.ins = -1
         self.pc = pc
         self.regfile = Regfile()
-        self.branch_target = 0x0
-        self.mispredict = False
+        self.npc = 0x0
+        self.use_npc = False
 
-        self.opcode         = 0
+        self.opcode         = Ops.NOP
         self.rd             = 0
-        self.funct3         = 0
+        self.funct3         = Ops.JALR
         self.rs1            = 0
         self.rs2            = 0
         self.funct7         = 0
@@ -66,7 +69,13 @@ class Decode(PipelineStage):
         self.imm_i_unsigned = 0
         self.opname         = 0
         self.aluop          = 0
-        # self.split()
+        self.rdat1          = 0
+        self.rdat2          = 0
+
+        self.wdat           = 0
+        self.wen            = 0
+        self.ls_addr        = 0x0
+        self.split()
 
         self.next.wen = 0
         self.ls_addr = 0x0 #address going to stores
@@ -75,6 +84,7 @@ class Decode(PipelineStage):
         self.next.wsel = 0x0 #output
 
     def split(self):
+        if (self.ins == -1): return 
         self.opcode = Ops(Utils.gib(self.ins, 6, 0))
         self.rd     = Utils.gib(self.ins, 11, 7)
         self.funct3 = Funct3(Utils.gib(self.ins, 14, 12))
@@ -92,43 +102,7 @@ class Decode(PipelineStage):
         self.opname = Utils.get_opname(self.opcode, self.funct3)
         self.aluop = Utils.get_aluop_d(self.funct3, self.funct7)
 
-    def __str__(self):
-        # ins = "%x" % self.ins
-        if self.opcode == Ops.IMM:
-            return (f'0x{self.zext(self.ins)} - '
-                f'{self.opname:6} '
-                f'r{self.rd}, '
-                f'r{self.rs1}  '
-                f'0x{Utils.gib(self.ins, 31, 20):x}'
-                )
-        elif self.opcode == Ops.LUI:
-            return (f'0x{self.zext(self.ins)} - '
-                f'{self.opname:6} '
-                f'r{self.rd}, '
-                f'    '
-                f'0x{self.zext(self.imm_u)}'
-                )
-        elif self.opcode == Ops.BRANCH:
-            return (f'0x{self.zext(self.ins)} - '
-                f'{self.opname:6} '
-                f'r{self.rs1}, '
-                f'r{self.rs2} '
-                f'0x{self.zext(self.imm_b, 4)}'
-                )
-        elif self.opcode == Ops.SYSTEM:
-            return (f'0x{self.zext(self.ins)} - '
-                f'{self.opname:6} '
-                f'r{self.rs1}, '
-                f'r{self.rs2} '
-                f'0x{self.zext(self.imm_b, 4)}'
-                )
-        else:
-            return (f'0x{self.zext(self.ins)} - '
-                f'{self.opname:6} '
-                f'r{self.rd}, '
-                f'r{self.rs1}, '
-                f'r{self.rs2}'
-                )
+
 
     def update(self, ifs, wb):
         self.ins = ifs.ins
@@ -136,15 +110,19 @@ class Decode(PipelineStage):
         self.next.wen  = wb.wen
         self.next.wdat = wb.wdat
         self.next.wsel   = wb.rd
+        logging.info("DECODE:    %s", self)
         
 
     def tick(self):
+        if self.ins == -1: return
         if self.next.wen:
             self.regfile[self.next.wsel] = self.next.wdat
         self.rdat1 = self.regfile[self.rs1]
         self.rdat2 = self.regfile[self.rs2]
         self.split()
         self.do_control()
+        logging.info("branch or jump: %s, target: %s", self.use_npc, self.npc)
+        logging.info("\n%s", self.regfile)
 
     def resolve_branch(self, rdat1, rdat2):
         if (self.funct3 == Funct3.BEQ):
@@ -164,12 +142,14 @@ class Decode(PipelineStage):
         self.regs = Regfile()
 
     def do_control(self):
+        if (self.opcode == Ops.NOP):
+            return
         if(self.opcode == Ops.BRANCH):
             if (self.resolve_branch(self.regfile[self.rs1], self.regfile[self.rs2]) == False):
-                self.branch_target = self.pc + self.imm_b
-                self.mispredict = True
+                self.npc = self.pc + self.imm_b
+                self.use_npc = True
             else:
-                self.branch_target = self.pc + 4
+                self.npc = self.pc + 4
         elif (self.opcode == Ops.IMM):
             self.wen = True
         elif(self.opcode == Ops.AUIPC):
@@ -177,14 +157,18 @@ class Decode(PipelineStage):
             self.wen = True
 
         elif (self.opcode == Ops.JALR):
-            npc = (self.imm_i + self.regfile[self.rs1]) & 0xFFFFFFFE
+            self.npc = (self.imm_i + self.regfile[self.rs1]) & 0xFFFFFFFE
             self.wdat = self.pc + 4
             self.wen = True
+            self.use_npc = True
+
 
         elif (self.opcode == Ops.JAL):
             self.wdat = self.pc + 4
-            npc = (self.imm_j) + self.pc
+            self.npc = (self.imm_j) + self.pc
             self.wen = True
+            self.use_npc = True
+
 
         elif (self.opcode == Ops.LOAD):
             self.ls_addr = self.regfile[self.rs1] + self.imm_i
@@ -223,23 +207,25 @@ class Decode(PipelineStage):
                         raise Exception("Failure in test %x" % self.regfile[3])
                     elif self.regfile[3] == 1:
                     # tests passed successfully
-                        return False
+                        # return False
+                        raise Exception
         
             # if self.funct3 == Funct3.ADD:  #ECALL/EBREAK
             # if self.funct3 in [Funct3.CSRRW, Funct3.CSRRS, Funct3.CSRRC, Funct3.CSRRWI, Funct3.CSRRSI, Funct3.CSRRCI]:
+            self.csr_addr = self.imm_i_unsigned
 
-            if self.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
-                self.csrs[self.imm_i_unsigned] = self.regfile[self.rs1]
-            elif self.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
-                self.csrs[self.imm_i_unsigned] = self.regfile[self.rs1] | self.csrs[self.imm_i_unsigned]
-            elif self.funct3 == Funct3.CSRRC: # reads csr value, writes to rd. initial value treated as a bit mask 
-                self.csrs[self.imm_i_unsigned] = ~self.regfile[self.rs1] & self.csrs[self.imm_i_unsigned]
-            elif self.funct3 == Funct3.CSRRWI: # if rd = x0 then do not read CSR, no side effects
-                self.csrs[self.imm_i_unsigned] = self.rs1
-            elif self.funct3 == Funct3.CSRRSI: # update csr with 5-bit unsigned immediate, no write to CSR
-                self.csrs[self.imm_i_unsigned] = self.rs1 | self.csrs[self.imm_i_unsigned]
-            elif self.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
-                self.csrs[self.imm_i_unsigned] = ~self.rs1 & self.csrs[self.imm_i_unsigned]
+            # if self.funct3 == Funct3.CSRRW: # read old csr value, zero extend to XLEN, write to rd. rs1 written to csr
+            #     self.csrs[self.imm_i_unsigned] = self.regfile[self.rs1]
+            # elif self.funct3 == Funct3.CSRRS: # read, write to rd. rs1 is a bit mask corresponding to bit positions in the csr
+            #     self.csrs[self.imm_i_unsigned] = self.regfile[self.rs1] | self.csrs[self.imm_i_unsigned]
+            # elif self.funct3 == Funct3.CSRRC: # reads csr value, writes to rd. initial value treated as a bit mask 
+            #     self.csrs[self.imm_i_unsigned] = ~self.regfile[self.rs1] & self.csrs[self.imm_i_unsigned]
+            # elif self.funct3 == Funct3.CSRRWI: # if rd = x0 then do not read CSR, no side effects
+            #     self.csrs[self.imm_i_unsigned] = self.rs1
+            # elif self.funct3 == Funct3.CSRRSI: # update csr with 5-bit unsigned immediate, no write to CSR
+            #     self.csrs[self.imm_i_unsigned] = self.rs1 | self.csrs[self.imm_i_unsigned]
+            # elif self.funct3 == Funct3.CSRRCI: # update csr with 5-bit unsigned immediate, no write to CSR
+            #     self.csrs[self.imm_i_unsigned] = ~self.rs1 & self.csrs[self.imm_i_unsigned]
             
         else:
             raise Exception("write op %x" % self.ins)

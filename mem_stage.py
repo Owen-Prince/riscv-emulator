@@ -1,12 +1,8 @@
 import struct
 import binascii
 import logging
+from PipelineStage import PipelineStage
 from cpu_types import Ops, Utils
-
-
-
-
-
 
 
 class Memory():
@@ -79,22 +75,37 @@ class CSregs():
 
 
 
-class MemStage():
+class Mem(PipelineStage):
     def __init__(self):
+        super().__init__()
+
         self.memory = Memory()
         self.csrs = CSregs()
+        self.wdat    = 0
+        self.wen     = 0
+        self.opcode  = 0
+        self.ls_addr = 0
+        self.rd      = 0
+        self.rs1     = 0
+        self.rs2     = 0
 
     def reset(self):
         self.memory.reset()
         self.csrs.reset()
 
     def update(self, ex):
+        super().update(ex)
         self.wdat    = ex.wdat
         self.wen     = ex.wen
         self.opcode  = ex.opcode
         self.ls_addr = ex.ls_addr
         self.rd = ex.rd
+        self.rs1 = ex.rs1
+        self.rs2 = ex.rs2
+        logging.info("MEMORY:    %s", self)
+
     def tick(self):
+        if self.ins == -1: return
         if self.opcode == Ops.LOAD:
             self.wdat = self.memory[self.ls_addr]
         elif self.opcode == Ops.STORE:

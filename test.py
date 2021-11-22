@@ -136,12 +136,21 @@ class TestFetch(unittest.TestCase):
     def setUp(self):
         self.mem = init_mem("rv32ui-p-add")
         self.ifetch = InsFetch(self.mem)
+        self.de = Mock()
+        self.de.correct_branch_target = 0x8000ABCD
+    
 
-    # tobytes = lambda x : bytes([int(x[i:i+8], 2) for i in range(0, len(x), 8)])
-    # def testUpdate(self):
-    #     self.ifetch.update(self.mem, 0x80000000, False)
-    #     self.ifetch.tick()
-    #     self.assertEqual(self.ifetch.pc, 0x80000004)
+    @parameterized.expand([
+        ["right", False],
+        ["wrong", True],
+    ])
+    def testUpdate(self, name, mispredict):
+
+        self.de.mispredict = mispredict
+        self.ifetch.update(self.mem, self.de)
+        self.ifetch.tick()
+        if (mispredict): self.assertNotEqual(self.ifetch.pc, 0x80000004)
+        else: self.assertEqual(self.ifetch.pc, 0x80000004)
 
     # def testBranch(self):
     #     self.ifetch.update(self.mem, 0x8000000A, True)
@@ -154,40 +163,18 @@ class TestDecode(unittest.TestCase):
         self.decode = Decode()
         self.ifs = Mock()
         self.wb = Mock()
+        self.ifs.ins = 0x00000113
+        self.ifs.pc = 0x80000000
         
-        
-        
-
     def testWrite(self):
         self.wb.wen = 1
         self.wb.wdat = 0xabcd
         self.wb.rd = 1
-        self.ifs.ins = 0x00000113
         # print(self.ifs.ins)
-        self.ifs.pc = 0x80000000
         self.decode.update(self.ifs, self.wb)
         self.decode.tick()
         self.assertEqual(self.wb.wdat, self.decode.regfile[1])
         # print(self.decode.regfile)
-
-# def init_mem(self):
-#     for x in glob.glob("riscv-tests/isa/"+"rv32ui-p-*"):
-#     if x.endswith('.dump'):
-#         continue
-#     with open(x, 'rb') as f:
-#         mem.reset()
-#         de.reset()
-#         logging.info("test %s\n", x)
-#         e = ELFFile(f)
-#         for s in e.iter_segments():
-#             mem[s.header.p_paddr] = s.data()
-#         with open("test-cache/%s" % x.split("/")[-1], "wb") as g:
-#             mem.load(g)
-#         ins_f.pc = (0x80000000) 
-
-#         inscnt = 0
-#         while step():
-#             inscnt += 1
 
 
 

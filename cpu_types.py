@@ -3,7 +3,7 @@ import struct
 # RV32I Base Instruction Set
 
 class Ops(Enum):
-    NOP = 0b0
+    NOP = -1
 
     LUI = 0b0110111        # load upper immediate
     AUIPC = 0b0010111    # add upper immediate to pc
@@ -133,10 +133,10 @@ class Utils():
     @staticmethod
     def get_opname(op, f3):
         opname_dict = {
-            # (Ops.NOP, Funct3.JALR) : "NOP",
-            (Ops.LUI, Funct3.ADD) : "LUI",
-            (Ops.AUIPC, Funct3.ADD): "AUIPC",
-            (Ops.JAL, Funct3.ADD) : "JAL",
+            (Ops.NOP, Funct3.JALR)  : "NOP",
+            Ops.LUI                 : "LUI",
+            Ops.AUIPC               : "AUIPC",
+            Ops.JAL                 : "JAL",
             (Ops.JALR, Funct3.JALR) : "JALR",
 
             (Ops.BRANCH, Funct3.BEQ) : "BEQ",
@@ -186,6 +186,8 @@ class Utils():
             (Ops.SYSTEM, Funct3.CSRRSI) : "CSRRSI",
             (Ops.SYSTEM, Funct3.CSRRCI) : "CSRRCI"
         }
+        if op in [Ops.AUIPC, Ops.LUI, Ops.JAL]:
+            return opname_dict[op]
         return opname_dict[(op, f3)]
 
 
