@@ -11,8 +11,12 @@ class Wb(PipelineStage):
     def update(self, mem):
         super().update(mem)
         self.rd = mem.rd
+        # print(self.rd)
         self.wen = mem.wen
         self.wdat = mem.wdat
+        print(f"{self.wen}: Regfile[{self.rd}] = {self.wdat}")
+        print(30 * "__")
+
         logging.info("WRITEBACK: %s", self)
 
     def tick(self):

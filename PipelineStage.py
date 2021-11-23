@@ -34,8 +34,8 @@ class PipelineStage():
         self.wen            = 0
         self.ls_addr        = 0x0
 
-        self.branch_target = 0xBAD1BAD1
-        self.mispredict = False
+        self.npc = 0xBAD1BAD1
+        self.use_npc = False
 
     def update(self, prev):
         self.ins            = prev.ins
@@ -61,8 +61,8 @@ class PipelineStage():
         self.wdat           = prev.wdat
         self.wen            = prev.wen
         self.ls_addr        = prev.ls_addr
-        self.branch_target  = prev.branch_target
-        self.mispredict     = prev.mispredict
+        self.branch_target  = prev.npc
+        self.mispredict     = prev.use_npc
 
 
 

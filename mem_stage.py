@@ -102,6 +102,8 @@ class Mem(PipelineStage):
         self.rd = ex.rd
         self.rs1 = ex.rs1
         self.rs2 = ex.rs2
+        print(f"Memory - {self.wen}- Regfile[{self.rd}] = {self.wdat}")
+
         logging.info("MEMORY:    %s", self)
 
     def tick(self):

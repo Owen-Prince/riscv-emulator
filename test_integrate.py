@@ -40,16 +40,16 @@ class TestIfDe(unittest.TestCase):
         self.wb.rd = 1
 
     
-    def testUpdate(self):
+    # def testUpdate(self):
 
-        for i in range(10):
-            self.ifs.tick()
-            self.de.update(self.ifs, self.wb)
-            self.ifs.update(self.mem, self.de)
+    #     for i in range(10):
+    #         self.ifs.tick()
+    #         self.de.update(self.ifs, self.wb)
+    #         self.ifs.update(self.mem, self.de)
 
-            self.de.tick()
+    #         self.de.tick()
 
-        # self.assertEqual(self.mem[0x80000000], self.de.ins)
+    #     # self.assertEqual(self.mem[0x80000000], self.de.ins)
 
 class TestFull(unittest.TestCase):
     logging.basicConfig(filename='summary.log', filemode='w', level=logging.DEBUG)

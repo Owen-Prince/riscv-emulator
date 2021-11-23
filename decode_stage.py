@@ -87,6 +87,7 @@ class Decode(PipelineStage):
         if (self.ins == -1): return 
         self.opcode = Ops(Utils.gib(self.ins, 6, 0))
         self.rd     = Utils.gib(self.ins, 11, 7)
+        # print(f"decode rd: {self.rd}")
         self.funct3 = Funct3(Utils.gib(self.ins, 14, 12))
         self.rs1    = Utils.gib(self.ins, 19, 15)
         self.rs2    = Utils.gib(self.ins, 24, 20)
@@ -110,18 +111,22 @@ class Decode(PipelineStage):
         self.next.wen  = wb.wen
         self.next.wdat = wb.wdat
         self.next.wsel   = wb.rd
+        print(f"Decode - {self.next.wen} - Regfile[{self.next.wsel}] = {self.next.wdat}")
+        self.use_npc = False
         logging.info("DECODE:    %s", self)
         
 
     def tick(self):
         if self.ins == -1: return
         if self.next.wen:
+            if (self.next.wdat != "0") and (self.next.wsel != 0):
+                print(f"REGFILE[{self.next.wsel}] = {self.next.wdat}")
             self.regfile[self.next.wsel] = self.next.wdat
         self.rdat1 = self.regfile[self.rs1]
         self.rdat2 = self.regfile[self.rs2]
         self.split()
         self.do_control()
-        logging.info("branch or jump: %s, target: %s", self.use_npc, self.npc)
+        logging.info("branch or jump: %s, target: %s", self.use_npc, hex(self.npc))
         logging.info("\n%s", self.regfile)
 
     def resolve_branch(self, rdat1, rdat2):
@@ -175,6 +180,7 @@ class Decode(PipelineStage):
             self.wen = True
 
         elif (self.opcode == Ops.STORE):
+            r = self.regfile[self.rs2]
             self.ls_addr = self.regfile[self.rs2] + self.imm_s
             if (self.funct3 == Funct3.SW):
                 self.wdat = self.regfile[self.rs2] & 0xFFFFFFFF

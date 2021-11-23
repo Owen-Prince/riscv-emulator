@@ -30,7 +30,6 @@ class InsFetch(PipelineStage):
         # self.funct3 = Funct3(Utils.gib(ins, 14, 12))
         # self.rs1    = Utils.gib(ins, 19, 15)
         # self.rs2    = Utils.gib(ins, 24, 20)
-
         return ins 
 
     def update(self, memory, de):
@@ -42,8 +41,8 @@ class InsFetch(PipelineStage):
     def tick(self, stall=0, flush=0):
         self.prev_pc = self.pc
         if (self.use_npc): 
-            self.ins = -1
-            self.pc = -1 
+            self.ins = self.fetch()
+            self.pc = self.npc 
         else:
             self.ins = self.fetch()
             self.pc = self.set_pc()

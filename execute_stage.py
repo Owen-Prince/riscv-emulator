@@ -25,11 +25,13 @@ class Execute(PipelineStage):
         self.rdat2   = de.rdat2
         self.rs1     = de.rs1
         self.rs2     = de.rs2
-        self.wdat    = de.wdat
-        self.wen     = de.wen
         self.opcode  = de.opcode
         self.ls_addr = de.ls_addr
         self.rd      = de.rd
+        self.wen     = de.wen
+        self.wdat    = de.wdat
+        print(f"Execute - {self.wen} - Regfile[{self.rd}] = {self.wdat}")
+
         logging.info("EXECUTE:   %s", self)
 
     def tick(self):
