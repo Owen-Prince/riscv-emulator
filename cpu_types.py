@@ -3,7 +3,7 @@ import struct
 # RV32I Base Instruction Set
 
 class Ops(Enum):
-    NOP = -1
+    NOP = 0x0
 
     LUI = 0b0110111        # load upper immediate
     AUIPC = 0b0010111    # add upper immediate to pc
@@ -82,127 +82,117 @@ class Aluop(Enum):
 
 
 
-class Utils():
 
 
-    @staticmethod
-    def zext(s, w=8):
-        if (len(("%x" % s)) < w):
-            return ("%x" % s).zfill(w)
-        else:
-            return ("%x" % s)
+    
 
-    @staticmethod
-    def unsigned(x, l=32):
-        if (x < 0):
-        # if (x >> 31) & 0x1 == 1:
-        # if Utils.gib(x, l, l-1) == 1:
-            return -1*int((x ^ (0xFFFFFFFF >> (32 - l))) + 1)
-        else:
-            return x
+def get_aluop_d(funct3, funct7):
+    """map funct3 and funct7 to aluop control signal"""
+    if funct3 == Funct3.ADD:
+        return Aluop.ADD if (funct7 == 0) else Aluop.SUB
+    elif funct3 == Funct3.SLL:
+        return Aluop.SLL
+    elif funct3 == Funct3.SRL:
+        return Aluop.SRL if (funct7 == 0) else Aluop.SRA
+    elif funct3 == Funct3.SLT:
+        return Aluop.SLT
+    elif funct3 == Funct3.SLTU:
+        return Aluop.SLTU
+    elif funct3 == Funct3.XOR:
+        return Aluop.XOR
+    elif funct3 == Funct3.OR:
+        return Aluop.OR
+    elif funct3 == Funct3.AND:
+        return Aluop.AND
+    else:
+        raise Exception("Invalid Aluop %s" % funct3)
 
-    @staticmethod
-    def sign_extend( x, l):
-        if x >> (l-1) == 1:
-            return -((1 << l) - x)
-        else:
-            return x
+def get_opname(op, f3):
+    opname_dict = {
+        (Ops.NOP, Funct3.ADDI)  : "NOP",
+        Ops.LUI                 : "LUI",
+        Ops.AUIPC               : "AUIPC",
+        Ops.JAL                 : "JAL",
+        (Ops.JALR, Funct3.JALR) : "JALR",
 
-    @staticmethod
-    def get_aluop_d(funct3, funct7):
-        """map funct3 and funct7 to aluop control signal"""
-        if funct3 == Funct3.ADD:
-            return Aluop.ADD if (funct7 == 0) else Aluop.SUB
-        elif funct3 == Funct3.SLL:
-            return Aluop.SLL
-        elif funct3 == Funct3.SRL:
-            return Aluop.SRL if (funct7 == 0) else Aluop.SRA
-        elif funct3 == Funct3.SLT:
-            return Aluop.SLT
-        elif funct3 == Funct3.SLTU:
-            return Aluop.SLTU
-        elif funct3 == Funct3.XOR:
-            return Aluop.XOR
-        elif funct3 == Funct3.OR:
-            return Aluop.OR
-        elif funct3 == Funct3.AND:
-            return Aluop.AND
-        else:
-            raise Exception("Invalid Aluop %s" % funct3)
+        (Ops.BRANCH, Funct3.BEQ) : "BEQ",
+        (Ops.BRANCH, Funct3.BNE) : "BNE",
+        (Ops.BRANCH, Funct3.BLT) : "BLT",
+        (Ops.BRANCH, Funct3.BGE) : "BGE",
+        (Ops.BRANCH, Funct3.BLTU) : "BLTU",
+        (Ops.BRANCH, Funct3.BGEU) : "BGEU",
 
-    @staticmethod
-    def get_opname(op, f3):
-        opname_dict = {
-            (Ops.NOP, Funct3.JALR)  : "NOP",
-            Ops.LUI                 : "LUI",
-            Ops.AUIPC               : "AUIPC",
-            Ops.JAL                 : "JAL",
-            (Ops.JALR, Funct3.JALR) : "JALR",
+        (Ops.LOAD, Funct3.LB) : "LB",
+        (Ops.LOAD, Funct3.LH) : "LH",
+        (Ops.LOAD, Funct3.LW) : "LW",
+        (Ops.LOAD, Funct3.LBU) : "LBU",
+        (Ops.LOAD, Funct3.LHU) : "LHU",
 
-            (Ops.BRANCH, Funct3.BEQ) : "BEQ",
-            (Ops.BRANCH, Funct3.BNE) : "BNE",
-            (Ops.BRANCH, Funct3.BLT) : "BLT",
-            (Ops.BRANCH, Funct3.BGE) : "BGE",
-            (Ops.BRANCH, Funct3.BLTU) : "BLTU",
-            (Ops.BRANCH, Funct3.BGEU) : "BGEU",
+        (Ops.STORE, Funct3.SB) : "SB",
+        (Ops.STORE, Funct3.SH) : "SH",
+        (Ops.STORE, Funct3.SW) : "SW",
 
-            (Ops.LOAD, Funct3.LB) : "LB",
-            (Ops.LOAD, Funct3.LH) : "LH",
-            (Ops.LOAD, Funct3.LW) : "LW",
-            (Ops.LOAD, Funct3.LBU) : "LBU",
-            (Ops.LOAD, Funct3.LHU) : "LHU",
+        (Ops.IMM, Funct3.ADDI) : "ADDI",
+        (Ops.IMM, Funct3.SLTI) : "SLTI",
+        (Ops.IMM, Funct3.SLTIU) : "SLTIU",
+        (Ops.IMM, Funct3.XORI) : "XORI",
+        (Ops.IMM, Funct3.ORI) : "ORI",
+        (Ops.IMM, Funct3.ANDI) : "ANDI",
+        (Ops.IMM, Funct3.SLLI) : "SLLI",
+        (Ops.IMM, Funct3.SRLI) : "SRLI",
+        (Ops.IMM, Funct3.SRAI) : "SRAI",
+        (Ops.OP, Funct3.ADD) : "ADD",
+        (Ops.OP, Funct3.SUB) : "SUB",
+        (Ops.OP, Funct3.SLL) : "SLL",
+        (Ops.OP, Funct3.SLT) : "SLT",
+        (Ops.OP, Funct3.SLTU) : "SLTU",
+        (Ops.OP, Funct3.XOR) : "XOR",
+        (Ops.OP, Funct3.SRL) : "SRL",
+        (Ops.OP, Funct3.SRA) : "SRA",
+        (Ops.OP, Funct3.OR) : "OR",
+        (Ops.OP, Funct3.AND) : "AND",
 
-            (Ops.STORE, Funct3.SB) : "SB",
-            (Ops.STORE, Funct3.SH) : "SH",
-            (Ops.STORE, Funct3.SW) : "SW",
+        (Ops.MISC, Funct3.ADD) : "FENCE",
 
-            (Ops.IMM, Funct3.ADDI) : "ADDI",
-            (Ops.IMM, Funct3.SLTI) : "SLTI",
-            (Ops.IMM, Funct3.SLTIU) : "SLTIU",
-            (Ops.IMM, Funct3.XORI) : "XORI",
-            (Ops.IMM, Funct3.ORI) : "ORI",
-            (Ops.IMM, Funct3.ANDI) : "ANDI",
-            (Ops.IMM, Funct3.SLLI) : "SLLI",
-            (Ops.IMM, Funct3.SRLI) : "SRLI",
-            (Ops.IMM, Funct3.SRAI) : "SRAI",
-            (Ops.OP, Funct3.ADD) : "ADD",
-            (Ops.OP, Funct3.SUB) : "SUB",
-            (Ops.OP, Funct3.SLL) : "SLL",
-            (Ops.OP, Funct3.SLT) : "SLT",
-            (Ops.OP, Funct3.SLTU) : "SLTU",
-            (Ops.OP, Funct3.XOR) : "XOR",
-            (Ops.OP, Funct3.SRL) : "SRL",
-            (Ops.OP, Funct3.SRA) : "SRA",
-            (Ops.OP, Funct3.OR) : "OR",
-            (Ops.OP, Funct3.AND) : "AND",
+        (Ops.SYSTEM, Funct3.ADD) : "ECALL/EBREAK",
+        (Ops.SYSTEM, Funct3.CSRRW)  : "CSRRW",
+        (Ops.SYSTEM, Funct3.CSRRS)  : "CSRRS",
+        (Ops.SYSTEM, Funct3.CSRRC)  : "CSRRC",
+        (Ops.SYSTEM, Funct3.CSRRWI) : "CSRRWI",
+        (Ops.SYSTEM, Funct3.CSRRSI) : "CSRRSI",
+        (Ops.SYSTEM, Funct3.CSRRCI) : "CSRRCI"
+    }
+    if op in [Ops.AUIPC, Ops.LUI, Ops.JAL]:
+        return opname_dict[op]
+    return opname_dict[(op, f3)]
 
-            (Ops.MISC, Funct3.ADD) : "FENCE",
+def pad(s, l=8)->str:
+    if len(s) >= l: return s[0:l]
+    return "".join(["0" for i in range (l - len(s))]) + s
 
-            (Ops.SYSTEM, Funct3.ADD) : "ECALL/EBREAK",
-            (Ops.SYSTEM, Funct3.CSRRW)  : "CSRRW",
-            (Ops.SYSTEM, Funct3.CSRRS)  : "CSRRS",
-            (Ops.SYSTEM, Funct3.CSRRC)  : "CSRRC",
-            (Ops.SYSTEM, Funct3.CSRRWI) : "CSRRWI",
-            (Ops.SYSTEM, Funct3.CSRRSI) : "CSRRSI",
-            (Ops.SYSTEM, Funct3.CSRRCI) : "CSRRCI"
-        }
-        if op in [Ops.AUIPC, Ops.LUI, Ops.JAL]:
-            return opname_dict[op]
-        return opname_dict[(op, f3)]
+def zext(s, w=8):
+    if (len(("%x" % s)) < w):
+        return ("%x" % s).zfill(w)
+    else:
+        return ("%x" % s)
 
+def unsigned(x, l=32):
+    if (x < 0):
+    # if (x >> 31) & 0x1 == 1:
+    # if gib(x, l, l-1) == 1:
+        return -1*int((x ^ (0xFFFFFFFF >> (32 - l))) + 1)
+    else:
+        return x
 
-    @staticmethod
-    def gib(x, s, e):
-        """ # x[s:e]"""
-        return (x >> e) & ((1 << (s - e + 1))-1)
+def sign_extend( x, l):
+    if x >> (l-1) == 1:
+        return -((1 << l) - x)
+    else:
+        return x
 
-    def gibi(self, s, e):
-        return (self.ins >> e) & ((1 << (s - e + 1))-1)
+def gib(x, s, e):
+    """x[s:e]"""
+    return (x >> e) & ((1 << (s - e + 1))-1)
 
-    @staticmethod
-    def htoi(val):
-        return struct.unpack("<I", val)[0]
-
-class Instr():
-    def __init__(self, instruction):
-        pass
+def htoi(val):
+    return struct.unpack("<I", val)[0]

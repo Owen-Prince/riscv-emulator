@@ -6,3 +6,5 @@ test.py
 log.txt
 settings.json
 summary.log
+.DS_Store
+.vscode/launch.json
