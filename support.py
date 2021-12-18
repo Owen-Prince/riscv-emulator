@@ -7,6 +7,8 @@ from cpu_types import Aluop, Funct3, Ops, get_aluop_d, get_opname, gib, pad, sig
 
 class Success(Exception):
     pass
+class Fail(Exception):
+    pass
 
 class Ram():
     def __init__(self):
@@ -70,6 +72,8 @@ class Regfile:
 
 class Instruction:
     def __init__(self, ins_hex, regs=None):
+        appx = lambda x : 'x' + str(x) 
+        app0x = lambda x : '0x' + str(x) if int(x) >= 0 else '-0x' + str(-1 * x)
         if (ins_hex == -1): return
         # if (gib(ins_hex, 6, 0) not in list(Ops)): print("ERROR: %s", ins_hex)
         self.opcode = Ops(gib(ins_hex, 6, 0))
@@ -98,7 +102,7 @@ class Instruction:
         self.aluop  = get_aluop_d(self.funct3, self.funct7)
 
         if regs is None:
-            print("regs are none")
+            # print("regs are none")
             self.rdat1  = 0
             self.rdat2  = 0
         else:
@@ -109,11 +113,11 @@ class Instruction:
         self.ls_addr        = 0x0
 
         self.as_str = {}
-        self.as_str[Ops.IMM]    = f'{self.opname:6} x{self.rd}, x{self.rs1}  0x{self.imm_i_unsigned:>x}'
-        self.as_str[Ops.LUI]    = f'{self.opname:6} x{self.rd}, 0x{zext(self.imm_u):>}'
-        self.as_str[Ops.BRANCH] = f'{self.opname:6} x{self.rs1}, x{self.rs2} 0x{zext(self.imm_b, 4):>}'
-        self.as_str[Ops.SYSTEM] = f'{self.opname:6} x{self.rs1}, x{self.rs2} 0x{zext(self.imm_b, 4):>}'
-        self.as_str_default     = f'{self.opname:6} x{self.rd}, x{self.rs1}, x{self.rs2:>}'
+        self.as_str[Ops.IMM]    = f'{self.opname:6}{appx(self.rd):>3}, {appx(self.rs1):>3}  {app0x(self.imm_i_unsigned):<12}'
+        self.as_str[Ops.LUI]    = f'{self.opname:6}{appx(self.rd):>3},      {app0x(self.imm_u):>12}'
+        self.as_str[Ops.BRANCH] = f'{self.opname:6}{appx(self.rs1):>3}, {appx(self.rs2):>3}  {app0x(self.imm_b):<12}'
+        self.as_str[Ops.SYSTEM] = f'{self.opname:6}{appx(self.rs1):>3}, {appx(self.rs2):>3}  {app0x(self.imm_b):<12}'
+        self.as_str_default     = f'{self.opname:6}{appx(self.rd):>3}, {appx(self.rs1):>3}, {appx(self.rs2):<12}'
         self.use_npc = False
         self.npc = 0x0
         self.regs = regs
@@ -142,14 +146,14 @@ class Instruction:
         self.wen = self.opcode in [Ops.IMM, Ops.AUIPC, Ops.JALR, Ops.JAL, Ops.LOAD, Ops.LUI, Ops.OP]
         if self.opcode in [Ops.JALR, Ops.JAL]:
             self.use_npc = True
-        elif (self.opcode == Ops.BRANCH) and self.is_correct_prediction(self.rdat1, self.rdat2):
-            self.use_npc = True
-            self.npc = pc + self.imm_b
+        # elif (self.opcode == Ops.BRANCH) and self.is_correct_prediction(self.rdat1, self.rdat2):
+        #     self.use_npc = True
+        #     self.npc = pc + self.imm_b
 
         # self.use_npc = self.opcode in [Ops.JALR, Ops.JAL] or (self.opcode == Ops.BRANCH and not self.is_correct_prediction(self.rdat1, self.rdat2))
 
         if(self.opcode == Ops.BRANCH):
-            if (self.is_correct_prediction(self.rdat1, self.rdat2) == False):
+            if (self.take_branch(self.rdat1, self.rdat2)):
                 self.npc = pc + self.imm_b
                 self.use_npc = True
             # else:
@@ -162,7 +166,7 @@ class Instruction:
             # self.wen = True                     ###
 
         elif (self.opcode == Ops.JALR):
-            self.npc = (self.imm_i + self.rdat1) & 0xFFFFFFFE
+            self.npc = (self.imm_i + self.rdat1 + 4) & 0xFFFFFFFE
             self.wdat = pc + 4
             # self.wen = True
             self.use_npc = True
@@ -203,35 +207,41 @@ class Instruction:
         # CSRRW reads the old value of the CSR, zero-extends the value to XLEN bits,
         # then writes it to integer register rd. The initial value in rs1 is written to the CSR
             if self.funct3 == Funct3.ECALL:
-                if self.funct3 == Funct3.ECALL:
+                # if self.funct3 == Funct3.ECALL:
+                    #These 2 lines are used for testing with the riscv-tests repository
                     if self.regs[3] > 1:
-                    # return False
-                        raise Exception("Failure in test %x" % self.regs[3])
+                        raise Fail("Failure in test %x" % self.regs[3])
                     elif self.regs[3] == 1:
                         print("SUCCESS")
-                    # tests passed successfully
-                        # return False
                         raise Success("Success")
+                    # tests passed successfully
 
             # self.csr_addr = self.imm_i_unsigned
         else:
             pass
             # raise Exception("write op %x" % self.ins_hex)
-
-    def is_correct_prediction(self, rdat1, rdat2):
+    
+    def take_branch(self, rdat1, rdat2, predicted=False) -> bool:
+        """
+        if True take the branch.
+        Since the branch is currently predicted to be always 
+        not taken, if the branch condition evaluates to True
+        then this function will return True
+        """
         if (self.funct3 == Funct3.BEQ):
-            return rdat1 == rdat2
+            return (rdat1 == rdat2)
         elif (self.funct3 == Funct3.BNE):
-            return (rdat1 != rdat2)
+            return (rdat1 != rdat2) 
         elif (self.funct3 == Funct3.BLT):
-            return (rdat1 < rdat2)
+            return (rdat1 < rdat2) 
         elif (self.funct3 == Funct3.BGE):
-            return (rdat1 >= rdat2)
+            return (rdat1 >= rdat2) 
         elif (self.funct3 == Funct3.BLTU):
-            return (unsigned(rdat1) < unsigned(rdat2))
+            return (unsigned(rdat1) < unsigned(rdat2)) 
         elif (self.funct3 == Funct3.BGEU):
-            return unsigned(rdat1) >= unsigned(rdat2)
-
+            return (unsigned(rdat1) >= unsigned(rdat2)) 
+    
+    
 def ALU(aluop, a, b):
     if   aluop == Aluop.ADD:
         return a + b
@@ -253,27 +263,26 @@ def ALU(aluop, a, b):
 
 class ForwardingUnit:
     """
-    Represent destination data as a list of dicts of rd : wdat.
-    Hash the dicts to 
+    Represent destination data as a list of dicts 
+    of rd : wdat.
+    build_index does a hash of the list of dicts 
     """
     def __init__(self):
         self.data = []
         self.index = {}
         
-    def insert(self, key, value):
+    def insert(self, rd, wdat):
         """
-        key: rd
-        value: wdat
-        Append dict of key : val to the queue. 
+        Append dict of rd : val to the queue. 
         """
-        self.data.append({'key' : key, 'value' : value})
+        self.data.append({'rd' : rd, 'wdat' : wdat})
 
     def build_index(self):
-        """hash the queue of """
+        """hash the list of """
         index = {}
         for i in self.data:
             # TODO: watch for WAW
-            index[i['key']] = i['value']
+            index[i['rd']] = i['wdat']
         return index
 
     def forward(self, rs1, rs2):
