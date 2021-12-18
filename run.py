@@ -1,11 +1,10 @@
-from stages import Writeback, Memory, Execute, Decode, Fetch
 import logging
 import os
-# from elftools.elf.elffile import ELFFile
 
+import glob
+from stages import Decode, Execute, Fetch, Memory, Writeback
 from support import ForwardingUnit, Ram, Success
 
-# from stages import *
 FORMAT = '%(message)s'
 
 logging.basicConfig(filename='summary.log', format=FORMAT, filemode='w', level=logging.INFO)
@@ -21,10 +20,8 @@ s2 = Decode()
 s1 = Fetch(ram)
 
 
-# for i in range(35):
 def step():
     fwd = ForwardingUnit()
-    # global s1, s2, s3, s4, s5, fwd, ram
     try:
         s2.wb(prev=s5)
         s5.tick(s4)
@@ -43,30 +40,33 @@ def step():
         raise
     return True
 
-
-# print(s2.regs)
+def get_test_files():
+    """subfolder of riscv-tests/isa/"""
+    return glob.glob("riscv-tests/isa/")
 
 if __name__ == "__main__":
     # global ram
     if not os.path.isdir('test-cache'):
         os.mkdir('test-cache')
-    # for filename in glob.glob("riscv-tests/isa/rv32ui-p-*"):
+    # filename_list = get_test_files()
     # filename = "riscv-tests/isa/rv32ui-p-add"
-    FILENAME = "hello"
-    # if x.endswith('.dump'):
-        # continue
-    ram.load(FILENAME)
-    inscnt = 0
-    s1.ins_hex = s1.fetch(s1.pc)
+    filename_list = []
+    for filename in filename_list:
+        if filename.endswith('.dump'):
+            continue
 
-    # while step():
-    logging.info("%s", f"CLK CYCLE : {inscnt} {f'-'*24}")
-    while inscnt < 10:
-        step()
-    # while(step()):
-        inscnt += 1
+        ram.load(filename)
+        
+        inscnt = 0
+        s1.ins_hex = s1.fetch(s1.pc)
+
+        # while step():
         logging.info("%s", f"CLK CYCLE : {inscnt} {f'-'*24}")
-    # logging.debug("  ran %d instructions" % inscnt)
-    # logging.debug(str(ram.csrs))
-    print(s2.regs)
-    # print(ram)
+        while inscnt < 10:
+            step()
+        # while(step()):
+            inscnt += 1
+            logging.info("%s", f"CLK CYCLE : {inscnt} {f'-'*24}")
+        # logging.debug("  ran %d instructions" % inscnt)
+        # logging.debug(str(ram.csrs))
+        print(s2.regs)

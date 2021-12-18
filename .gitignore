@@ -5,6 +5,8 @@ __pycache__/*
 test.py
 log.txt
 settings.json
-summary.log
+*.log
 .DS_Store
 .vscode/launch.json
+*.o
+*_actual

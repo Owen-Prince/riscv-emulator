@@ -144,6 +144,7 @@ class Instruction:
             self.use_npc = True
         elif (self.opcode == Ops.BRANCH) and self.is_correct_prediction(self.rdat1, self.rdat2):
             self.use_npc = True
+            self.npc = pc + self.imm_b
 
         # self.use_npc = self.opcode in [Ops.JALR, Ops.JAL] or (self.opcode == Ops.BRANCH and not self.is_correct_prediction(self.rdat1, self.rdat2))
 
