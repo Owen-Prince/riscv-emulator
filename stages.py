@@ -28,9 +28,9 @@ class Stage:
         self.pc = prev.pc
         self.ins_hex = prev.ins_hex
         self.ins = prev.ins
-        self.update()
         logging.info("%s", self.format())
-        return {'rd' : self.ins.rd, 'wdat' : self.ins.wdat}
+        self.update()
+        # return {'rd' : self.ins.rd, 'wdat' : self.ins.wdat}
         # return self.ins
 
     def update(self):
@@ -49,7 +49,7 @@ class Fetch(Stage):
         self.use_npc = False
         self.ram = ram
         self.ins_hex = self.fetch(self.pc)
-        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}\t\t\t\tnpc = {pad(hex(self.npc)[2:])}, take_npc = {self.use_npc}"
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}{f' ':31}| npc = {pad(hex(self.npc)[2:])}, use_npc = {self.use_npc}"
         
     def tick(self, decode=None):
         """
@@ -59,7 +59,7 @@ class Fetch(Stage):
         self.ins_hex = self.fetch(self.pc)
         super().tick(self)
         self.use_npc = decode.ins.use_npc
-        self.npc = decode.ins.npc - 4 if decode and decode.ins.use_npc else self.pc + 4
+        self.npc = decode.ins.npc if decode and decode.ins.use_npc else self.pc + 4
         self.pc = self.npc
         
     def fetch(self, pc):
@@ -78,7 +78,7 @@ class Decode(Stage):
     def __init__(self):
         super().__init__("Decode")
         self.regs = Regfile()
-        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins}\t rs1 = {self.ins.rs1}, rs2 = {self.ins.rs2}, rd = {self.ins.rd} | npc = {self.ins.npc}, use_npc = {self.ins.use_npc}"
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | npc = {self.ins.npc:8}, use_npc = {self.ins.use_npc}"
 
 
     def wb(self, prev):
@@ -102,7 +102,7 @@ class Execute(Stage):
     """
     def __init__(self):
         super().__init__("Execute")
-        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins} -- wen = {self.ins.wen:5}, wdat = {self.ins.wdat:8x}, wsel = {self.ins.rd}"
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
 
     def update(self):
         if self.ins.opcode == Ops.OP:
@@ -114,8 +114,10 @@ class Memory(Stage):
     """
     Memory stage
     """
+
     def __init__(self):
         super().__init__("Memory")
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
 
 class Writeback(Stage):
     """
@@ -123,4 +125,4 @@ class Writeback(Stage):
     """
     def __init__(self):
         super().__init__("Writeback")
-        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins} -- wen = {self.ins.wen:5}, wdat = {self.ins.wdat:8x}, wsel = {self.ins.rd}"
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
