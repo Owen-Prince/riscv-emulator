@@ -1,31 +1,31 @@
-import logging
-import unittest
-from unittest.case import SkipTest
-
-from parameterized import parameterized
-from cpu_types import Fail, Success
-from datapath import Datapath
-
-from stages import Decode, Execute, Fetch, ForwardingUnit, Memory, Ram, Writeback
 # from support import Fail, ForwardingUnit, Ram, Success
+from cpu_types import Fail, Success
+from stages import Fetch, Decode, Execute, ForwardingUnit, Memory, Ram, Writeback
+import logging
 
-# import mock
 
-
-FORMAT = '%(message)s'
-
-logging.basicConfig(filename='test_integration.log', format=FORMAT, filemode='w', level=logging.INFO)
-logging.info("%s", f"{f'Stage':10}-- ({f'PC':8})")
-logging.info("%s", "-" * 23)
-
-class Pipeline(unittest.TestCase):
-    def setUp(self):
+class Datapath():
+    def __init__(self):
         self.ram = Ram()
         self.s5  = Writeback()
         self.s4  = Memory()
         self.s3  = Execute()
         self.s2  = Decode()
         self.s1  = Fetch(self.ram)
+
+        self.inscnt = 0
+
+    def run(self, filename):
+        self.ram.load(filename)
+        self.s1.ins_hex = self.s1.fetch(self.s1.pc)
+        logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
+        print(f"{self.s1.pc:x}")
+        while(self.step()):
+            self.inscnt += 1
+            print(f'{self.s1.pc:x} {self.s2.pc:x}')
+
+            logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
+        print(self.s2.regs)
 
     def eval(self):
         """
@@ -70,23 +70,3 @@ class Pipeline(unittest.TestCase):
             print("Error", repr(e))
             raise
         return True
-
-class TestBranch(unittest.TestCase):
-    def setUp(self):
-        self.datapath = Datapath()
-        
-        # self.ram.load(FILENAME)
-        
-    def test_beq(self):
-        FILENAME = "asm/branch.o"
-        self.datapath.run(FILENAME)
-        
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestExecute)
-    # suite.addTest(TestExecute)
-    # suite = unittest.TestSuite()
-    # suite.addTest(TestUtils())
-    # runner = unittest.TextTestRunner(verbosity=2)
-    # runner.run(suite)

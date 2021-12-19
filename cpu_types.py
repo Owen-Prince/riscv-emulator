@@ -1,5 +1,10 @@
 from enum import Enum, auto
 import struct
+
+class Success(Exception):
+    pass
+class Fail(Exception):
+    pass
 # RV32I Base Instruction Set
 
 class Ops(Enum):
@@ -79,7 +84,7 @@ class Aluop(Enum):
     OR = auto()
     AND = auto()
 
-def get_aluop_d(funct3, funct7) -> Aluop:
+def get_aluop_d(funct3: Funct3, funct7) -> Aluop:
     """map funct3 and funct7 to aluop control signal"""
     if funct3 == Funct3.ADD:
         return Aluop.ADD if (funct7 == 0) else Aluop.SUB
@@ -100,7 +105,7 @@ def get_aluop_d(funct3, funct7) -> Aluop:
     else:
         raise Exception("Invalid Aluop %s" % funct3)
 
-def get_opname(op, f3) -> str:
+def get_opname(op: Ops, f3: Funct3) -> str:
     opname_dict = {
         (Ops.NOP, Funct3.ADDI)  : "NOP",
         Ops.LUI                 : "LUI",
