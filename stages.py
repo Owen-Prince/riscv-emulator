@@ -3,7 +3,7 @@ import logging
 import struct
 
 from elftools.elf.elffile import ELFFile
-from cpu_types import Ops, gib, pad, unsigned, Funct3, Aluop, Success, Fail
+from cpu_types import Ops, gib, pad, sign_extend, unsigned, Funct3, Aluop, Success, Fail
 
 # from support import Regfile
 from Instruction import Instruction
@@ -148,6 +148,24 @@ class Memory(Stage):
         super().__init__("Memory")
         self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
         
+    def tick(self, prev, ram):
+        super().tick(prev)
+        if self.ins.opcode is Ops.LOAD:
+            self.ins.wdat = ram[self.ins.ls_addr]
+            if (self.ins.funct3 == Funct3.LW):
+                self.ins.wdat = ram[self.ins.ls_addr]
+            elif (self.ins.funct3 == Funct3.LH):
+                self.ins.wdat = sign_extend(ram[self.ins.ls_addr] & 0xFFFF)
+            elif (self.ins.funct3 == Funct3.LB):
+                self.ins.wdat = sign_extend(ram[self.ins.ls_addr] & 0xFF)
+            elif (self.ins.funct3 == Funct3.LHU):
+                self.ins.wdat = ram[self.ins.ls_addr] & 0xFFFF
+            elif (self.ins.funct3 == Funct3.LBU):
+                self.ins.wdat = ram[self.ins.ls_addr] & 0xFF
+
+                
+        if self.ins.opcode is Ops.STORE:
+            ram[self.ins.ls_addr] = struct.pack("I", self.ins.wdat)
     def update(self):
         pass
         
@@ -194,7 +212,7 @@ class Ram():
     def __setitem__(self, key, val):
         key -= 0x80000000
         assert key >=0 and key < len(self.memory)
-
+        # print(struct.pack("I", val))
         self.memory = self.memory[:key] + val + self.memory[key+len(val):]
 
     def load(self, filename):

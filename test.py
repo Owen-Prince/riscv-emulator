@@ -1,11 +1,12 @@
 import logging
+import struct
 import unittest
 from unittest.case import SkipTest
 
 from parameterized import parameterized
 
 from stages import Decode, Fetch
-from support import ForwardingUnit, Ram
+from stages import ForwardingUnit, Ram
 
 # import mock
 
@@ -47,6 +48,17 @@ class TestBranch(unittest.TestCase):
         for i in range(7): 
             self.step()
 
+class TestRam(unittest.TestCase):
+    def test_ram (self):
+        ram = Ram()
+        ram[0x80000000] = struct.pack("I", 1234)
+        print(ram.memory[0:4])
+        assert(struct.pack("I", 1234) == ram.memory[0:4])
+    def test_load(self):
+        FILENAME = "asm/branch.o"
+        ram = Ram()
+        ram.load(FILENAME)
+        print(ram.memory[0:100])
         
 
 if __name__ == '__main__':

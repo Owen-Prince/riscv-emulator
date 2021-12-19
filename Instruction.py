@@ -74,8 +74,8 @@ class Instruction:
             return
 
         self.wen = self.opcode in [Ops.IMM, Ops.AUIPC, Ops.JALR, Ops.JAL, Ops.LOAD, Ops.LUI, Ops.OP]
-        if self.opcode in [Ops.JALR, Ops.JAL]:
-            self.use_npc = True
+        self.use_npc = self.opcode in [Ops.JALR, Ops.JAL]
+            # self.use_npc = True
         # elif (self.opcode == Ops.BRANCH) and self.is_correct_prediction(self.rdat1, self.rdat2):
         #     self.use_npc = True
         #     self.npc = pc + self.imm_b
@@ -112,10 +112,11 @@ class Instruction:
 
         elif (self.opcode == Ops.LOAD):
             self.ls_addr = self.rdat1 + self.imm_i
+            # self.wsel = 
             # self.wen = True
 
         elif (self.opcode == Ops.STORE):
-            self.ls_addr = self.rdat2 + self.imm_s
+            self.ls_addr = self.rdat1 + self.imm_s
             if (self.funct3 == Funct3.SW):
                 self.wdat = self.rdat2 & 0xFFFFFFFF
             if (self.funct3 == Funct3.SH):
@@ -142,7 +143,8 @@ class Instruction:
                     #These 2 lines are used for testing with the riscv-tests repository
                 if self.imm_i_unsigned == 302:
                     pass
-                elif self.regs[3] > 1:
+                # elif self.regs[3] > 1:
+                elif self.regs[3] != 1:
                     raise Fail("Failure in test %x" % self.regs[3])
                 elif self.regs[3] == 1:
                     print("SUCCESS")

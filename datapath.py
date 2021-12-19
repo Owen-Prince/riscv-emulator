@@ -43,7 +43,7 @@ class Datapath():
             fwd.insert(rd=self.s5.ins.rd, wdat=self.s5.ins.wdat)
             
             # Memory <- Execute
-            self.s4.tick(self.s3)
+            self.s4.tick(self.s3, ram=self.ram)
             fwd.insert(rd=self.s4.ins.rd, wdat=self.s4.ins.wdat)
             
             # Execute <- Decode
