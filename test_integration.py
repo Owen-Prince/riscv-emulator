@@ -1,4 +1,5 @@
 import logging
+import os
 import unittest
 from unittest.case import SkipTest
 
@@ -6,80 +7,53 @@ from parameterized import parameterized
 from cpu_types import Fail, Success
 from datapath import Datapath
 
-from stages import Decode, Execute, Fetch, ForwardingUnit, Memory, Ram, Writeback
+# from stages import Decode, Execute, Fetch, ForwardingUnit, Memory, Ram, Writeback
 # from support import Fail, ForwardingUnit, Ram, Success
 
 # import mock
 
+ADDR_BASE = 0x80000000
+
 
 FORMAT = '%(message)s'
-
-logging.basicConfig(filename='test_integration.log', format=FORMAT, filemode='w', level=logging.INFO)
+# print(f'{os.path}.log')
+logging.basicConfig(filename=f'test_integration.log', format=FORMAT, filemode='w', level=logging.INFO)
 logging.info("%s", f"{f'Stage':10}-- ({f'PC':8})")
 logging.info("%s", "-" * 23)
 
-class Pipeline(unittest.TestCase):
-    def setUp(self):
-        self.ram = Ram()
-        self.s5  = Writeback()
-        self.s4  = Memory()
-        self.s3  = Execute()
-        self.s2  = Decode()
-        self.s1  = Fetch(self.ram)
+def test_exit(wdat):
+    if wdat != 1:
+        raise Fail
+    elif wdat == 1:
+        raise Success
 
-    def eval(self):
-        """
-        use same name as verilator here
-        update the state of the processor
-        """
-        try:
-            fwd = ForwardingUnit()
-            
-            # Decode <- Writeback
-            self.s2.wb(prev=self.s5)
-            
-            # Writeback <- Memory
-            self.s5.tick(self.s4)
-            fwd.insert(rd=self.s5.ins.rd, wdat=self.s5.ins.wdat)
-            
-            # Memory <- Execute
-            self.s4.tick(self.s3)
-            fwd.insert(rd=self.s4.ins.rd, wdat=self.s4.ins.wdat)
-            
-            # Execute <- Decode
-            self.s3.tick(self.s2)
-            fwd.insert(rd=self.s3.ins.rd, wdat=self.s3.ins.wdat)
-            
-            # Decode <- Fetch
-            self.s2.tick(self.s1)
 
-            # Fetch
-            self.s1.tick(decode=self.s2)
-            
-            logging.info("-"*20)
-        except:
-            raise
-
-    def step(self):
-        """wrapper for eval that contains exception logic"""
-        try:
-            self.eval()
-        except (Success, Fail) as e:
-            return False
-        except Exception as e:
-            print("Error", repr(e))
-            raise
-        return True
-
-class TestBranch(unittest.TestCase):
-    def setUp(self):
-        self.datapath = Datapath()
+# class TestBranch(unittest.TestCase):
+#     def setUp(self):
+#         self.datapath = Datapath(test_exit)
         
-        # self.ram.load(FILENAME)
+#     def test_beq(self):
+#         FILENAME = "asm/branch.o"
+#         self.datapath.run(FILENAME)
         
-    def test_beq(self):
-        FILENAME = "asm/branch.o"
+
+# class TestStore(unittest.TestCase):
+#     def setUp(self):
+#         self.datapath = Datapath(test_exit)
+        
+#     def test_store(self):
+#         FILENAME = "asm/store.o"
+#         self.datapath.run(FILENAME)
+#         self.assertEqual(4, self.datapath.ram[ADDR_BASE])
+
+class TestForward(unittest.TestCase):
+    def setUp(self):
+        self.datapath = Datapath(test_exit)
+        
+    def test_de_ex(self):
+        FILENAME = "asm/de_ex_forward.o"
         self.datapath.run(FILENAME)
+        self.assertEqual(1, self.datapath.s2.regs[10])
         
 
 if __name__ == '__main__':

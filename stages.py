@@ -3,6 +3,8 @@ import logging
 import struct
 
 from elftools.elf.elffile import ELFFile
+from ForwardingUnit import ForwardingUnit
+from Ram import Ram
 from cpu_types import Ops, gib, pad, sign_extend, unsigned, Funct3, Aluop, Success, Fail
 
 # from support import Regfile
@@ -21,12 +23,13 @@ class Stage:
         self.ins = Instruction(0)
         self.flush = False
         self.stall = False
+        self.busy = False
         self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins}"
 
         # if self.name == "Fetch":
         # logging.info("%s", self.format())
         
-    def tick(self, prev):
+    def tick(self, prev, fwd: ForwardingUnit=None):
         """
         prev: the previous stage
         all the update logic happens here. calls the update()
@@ -40,6 +43,9 @@ class Stage:
             logging.info("%s", self.format())
             
             self.update()
+            if fwd:
+                self.ins = fwd.forward(self.ins)
+                
         # return {'rd' : self.ins.rd, 'wdat' : self.ins.wdat}
         # return self.ins
 
@@ -68,6 +74,7 @@ class Fetch(Stage):
         self.ram = ram
         self.ins_hex = self.fetch(self.pc)
         self.ins = Instruction(self.ins_hex)
+        self.prev_pc = self.pc
         # print(f"\nFetch: {self.pc:x}, {self.ins}")
 
 
@@ -82,11 +89,13 @@ class Fetch(Stage):
         if not self.stall:
             self.use_npc = decode.ins.use_npc
             self.npc = decode.ins.npc if decode and decode.ins.use_npc else self.pc + 4
+            self.prev_pc = self.pc	
             self.pc = self.npc
             self.ins_hex = self.fetch(self.pc)
             self.ins = Instruction(self.ins_hex)
+            logging.info("%s", self.format())
 
-            super().tick(self)
+            # super().tick(self)
             # print(f"Fetch: {self.pc:x}, {self.ins}")
 
         
@@ -104,16 +113,21 @@ class Decode(Stage):
     """
     def __init__(self):
         super().__init__("Decode")
+        self.prev_pc = self.pc
         self.regs = Regfile()
-        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins} | npc = {self.ins.npc:8}, use_npc = {self.ins.use_npc}"
+        self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {self.ins} | npc = {self.ins.npc:8}, use_npc = {self.ins.use_npc}, prev_pc = {self.prev_pc:x}"
 
 
-    def wb(self, prev):
+    def wb(self, prev: Stage):
         """update registers with values from writeback stage"""
         self.regs[prev.ins.rd] = prev.ins.wdat if prev.ins.wen else self.regs[prev.ins.rd]
         
-    def tick(self, prev):
-        super().tick(prev)
+    def tick(self, prev: Stage, fwd: ForwardingUnit):
+        self.prev_pc = prev.prev_pc
+        super().tick(prev, fwd=fwd)
+
+        # if self.ins.opcode == Ops.BEQ or self.ins.opcode == Ops.BNE:
+        # print(f"PREVIOUS PC: {prev.prev_pc:x}")
 
     def update(self):
         """
@@ -122,7 +136,7 @@ class Decode(Stage):
         self.flush_logic()
         self.ins = Instruction(self.ins_hex, regs=self.regs)
         self.ins.set_control_signals(pc=self.pc)
-        self.flush = self.ins.use_npc
+        # self.flush = self.ins.use_npc
         # self.ins = 
 
 class Execute(Stage):
@@ -135,7 +149,7 @@ class Execute(Stage):
 
     def update(self):
         if self.ins.opcode == Ops.OP:
-            self.ins.wdat = ALU(self.ins.aluop, self.ins.rdat1, self.ins.rdat2)
+            self.ins.wdat = ALU(self.ins.aluop, self.ins.rdat1, self.rdat2)
         if self.ins.opcode == Ops.IMM:
             self.ins.wdat = ALU(self.ins.aluop, self.ins.rdat1, self.ins.imm_i)
 
@@ -148,8 +162,8 @@ class Memory(Stage):
         super().__init__("Memory")
         self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
         
-    def tick(self, prev, ram):
-        super().tick(prev)
+    def tick(self, prev: Stage, ram: Ram, fwd: ForwardingUnit):
+        super().tick(prev, fwd=fwd)
         if self.ins.opcode is Ops.LOAD:
             self.ins.wdat = ram[self.ins.ls_addr]
             if (self.ins.funct3 == Funct3.LW):
@@ -165,7 +179,9 @@ class Memory(Stage):
 
                 
         if self.ins.opcode is Ops.STORE:
+            print(f"{self.ins.ls_addr:x}")
             ram[self.ins.ls_addr] = struct.pack("I", self.ins.wdat)
+        return ram 
     def update(self):
         pass
         
@@ -174,9 +190,14 @@ class Writeback(Stage):
     """
     Writeback stage
     """
-    def __init__(self):
+    def __init__(self, exit_func):
+        self.exit_func = exit_func
         super().__init__("Writeback")
         self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}, {str(self.ins):24} | wen = {self.ins.wen:<}, wdat = {pad(hex(self.ins.wdat)[2:]):8}, wsel = {self.ins.rd}"
+    def update(self):
+        if self.ins.opcode is Ops.SYSTEM and self.ins.funct3 is Funct3.ECALL:
+            self.exit_func(self.ins.wdat)
+
 
 def ALU(aluop, a, b):
     if   aluop == Aluop.ADD:
@@ -197,46 +218,7 @@ def ALU(aluop, a, b):
     else:
         raise Exception("alu op %s" % Funct3(aluop))
     
-class Ram():
-    def __init__(self):
-        self.memory = b'\x00'*0x4000
 
-    def __getitem__(self, key):
-        key -= 0x80000000
-        if key < 0 or key >= len(self.memory):
-
-            raise Exception("mem fetch to %x failed" % key)
-        assert key >=0 and key < len(self.memory)
-        return struct.unpack("<I", self.memory[key:key+4])[0]
-
-    def __setitem__(self, key, val):
-        key -= 0x80000000
-        assert key >=0 and key < len(self.memory)
-        # print(struct.pack("I", val))
-        self.memory = self.memory[:key] + val + self.memory[key+len(val):]
-
-    def load(self, filename):
-        self.reset()
-        with open(filename, 'rb') as f:
-            e = ELFFile(f)
-            for s in e.iter_segments():
-                # if s.data() != 0:
-                    # print(s.data(), "\n")
-                self[s.header.p_paddr] = s.data()
-            with open("test-cache/%s" % filename.split("/")[-1], "wb") as g:
-                g.write(b'\n'.join([binascii.hexlify(self.memory[i:i+4][::-1]) for i in range(0,len(self.memory),4)]))
-    def reset(self):
-        self.memory =  b'\x00'*0x4000
-
-    def __str__(self):
-        s = []
-        bad = []
-        for i in range(0, len(self.memory), 4):
-            if self[i + 0x80000000] != 0:
-                padded = pad(hex(self[i + 0x80000000])[2:])
-                if len(padded) != 8: bad.append(hex(self[i + 0x80000000]))
-                s.append(f"{hex(i)}:\t0x{padded}\n")
-        return "".join(s)
 
 
 
@@ -257,98 +239,5 @@ class Regfile:
             s.append(f"{i}: {hex(self.regs[i])} \n")
         return "".join(s)
 
-class ForwardingUnit:
-    """
-    Represent destination data as a list of dicts 
-    of rd : wdat.
-    build_index does a hash of the list of dicts 
-    """
-    def __init__(self):
-        self.data = []
-        self.index = {}
-        
-    def insert(self, rd, wdat):
-        """
-        Append dict of rd : val to the queue. 
-        """
-        self.data.append({'rd' : rd, 'wdat' : wdat})
-
-    def build_index(self):
-        """hash the list of """
-        index = {}
-        for i in self.data:
-            # TODO: watch for WAW
-            index[i['rd']] = i['wdat']
-        return index
-
-    def forward(self, rs1, rs2):
-        """
-        return rs1, rs2
-        rs1 : forwarded value of rs1
-        """
-        index = self.build_index()
-        print(index)
-        rs1_fwd = index[rs1] if rs1 in index else None
-        rs2_fwd = index[rs2] if rs2 in index else None
-        return rs1_fwd, rs2_fwd
-
-    def pop(self):
-        """pop front of queue"""
-        if len(self.data) > 0:
-            self.data.pop()
-
-    def __str__(self):
-        as_string = ""
-        self.build_index()
-        print(self.data)
-        return ""
-        for k in self.index.keys():
-            as_string = as_string + f"x{k}: {self.data[k]}  "
-        return as_string
-
-class HazardUnit():
-    def __init__(self, f: Fetch, d: Decode, e: Execute, m: Memory, w: Writeback):
-
-        self.f = f
-        self.d = d
-        self.e = e
-        self.m = m
-
-        self.stall_f = self.f.busy
-        self.stall_d = self.d.busy
-        self.stall_e = self.e.busy
-        self.stall_m = self.m.busy
-
-        self.load_use()
-        self.stall_prev_stages()
 
 
-    def load_use(self) -> None:
-        """
-        Load in mem stage:
-            ex-mem
-            de-mem
-        Load in Ex stage:
-            de-ex
-        """
-        if self.m.ins.opcode == Ops.Load:
-            rd = self.m.ins.rd
-            if self.e.ins.rs1 == rd or self.e.ins.rs2 == rd:
-                self.stall_e = True
-            if self.d.ins.rs1 == rd or self.d.ins.rs2 == rd:
-                self.stall_d = True
-        if self.e.ins.opcode == Ops.Load:
-            rd = self.e.ins.rd
-            if self.d.ins.rs1 == rd or self.d.ins.rs2 == rd:
-                self.stall_d = True
-
-    def stall_prev_stages(self) -> None:
-        """
-        Stall all previous stages
-        """
-        if self.stall_m:
-            self.stall_e = True
-        if self.stall_e:
-            self.stall_d = True
-        if self.stall_d:
-            self.stall_f = True

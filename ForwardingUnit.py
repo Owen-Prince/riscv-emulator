@@ -1,5 +1,5 @@
+from typing import Dict
 from Instruction import Instruction
-from stages import Stage
 
 
 class ForwardingUnit:
@@ -12,42 +12,44 @@ class ForwardingUnit:
         self.data = []
         self.index = {}
         
-    def insert(self, ins: Instruction):
+    def insert(self, ins: Instruction)->None:
         """
         Append dict of rd : val to the queue. 
         """
         if ins.wen:
             self.data.append({'rd' : ins.rd, 'wdat' : ins.wdat})
 
-    def build_index(self):
+    def build_index(self)->Dict:
         """hash the list, give the later entried priority"""
         index = {}
         for i in self.data:
             index[i['rd']] = i['wdat']
         return index
 
-    def forward(self, rs1, rs2):
+    def forward(self, ins: Instruction)->Instruction:
         """
         return rs1, rs2
         rs1 : forwarded value of rs1
         """
         index = self.build_index()
         # print(index)
-        rs1_fwd = index[rs1] if rs1 in index else None
-        rs2_fwd = index[rs2] if rs2 in index else None
-        print(index)
-        return rs1_fwd, rs2_fwd
+        ins.rdat1 = index[ins.rs1] if ins.rs1 in index else ins.rdat1
+        ins.rdat2 = index[ins.rs2] if ins.rs2 in index else ins.rdat2
+        ins.set_control_signals(ins.pc)
+        # print(index)
+        return ins
 
-    def pop(self):
+    def pop(self)->None:
         """pop front of queue"""
         if len(self.data) > 0:
             self.data.pop()
 
     def __str__(self):
         as_string = ""
-        self.build_index()
-        print(self.data)
-        return ""
-        for k in self.index.keys():
-            as_string = as_string + f"x{k}: {self.data[k]}  "
+        index = self.build_index()
+        # return ""
+        if not index:
+            return ""
+        for k in index.keys():
+            as_string = as_string + f"x{k}: {index[k]}   "
         return as_string

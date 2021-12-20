@@ -5,12 +5,13 @@ from unittest.case import SkipTest
 
 from parameterized import parameterized
 
-from stages import Decode, Fetch
+from stages import Decode, Execute, Fetch, Memory, Writeback
 from stages import ForwardingUnit, Ram
+
 
 # import mock
 
-
+BASE_ADDR = 0x80000000
 FORMAT = '%(message)s'
 
 logging.basicConfig(filename='test.log', format=FORMAT, filemode='w', level=logging.INFO)
@@ -59,6 +60,37 @@ class TestRam(unittest.TestCase):
         ram = Ram()
         ram.load(FILENAME)
         print(ram.memory[0:100])
+
+class TestForwarding(unittest.TestCase):
+    def setUp(self) -> None:
+        self.ram = Ram()
+        self.s4  = Memory()
+        self.s3  = Execute()
+        self.s2  = Decode()
+        self.s1  = Fetch(self.ram)
+
+
+    def tick(self):
+        fwd = ForwardingUnit()
+        
+        # Memory <- Execute
+        r = self.s4.tick(self.s3, ram=self.ram)
+        fwd.insert(rd=self.s4.ins.rd, wdat=self.s4.ins.wdat)
+        
+        # Execute <- Decode
+        self.s3.tick(self.s2)
+        fwd.insert(rd=self.s3.ins.rd, wdat=self.s3.ins.wdat)
+        
+        # Decode <- Fetch
+        self.s2.tick(self.s1)
+
+        # Fetch
+        self.s1.tick(decode=self.s2)
+
+    def test_de_ex_fwd(self):
+        self.ram.load(filename="asm/forward.o")
+
+
         
 
 if __name__ == '__main__':

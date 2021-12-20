@@ -1,7 +1,8 @@
-from cpu_types import Fail, Funct3, Ops, Success, get_aluop_d, get_opname, gib, sign_extend, unsigned
+from cpu_types import  Funct3, Ops,  get_aluop_d, get_opname, gib, sign_extend, unsigned
 
 class Instruction:
     def __init__(self, ins_hex, regs=None):
+        self.pc = 0x0
         appx = lambda x : 'x' + str(x) 
         app0x = lambda x : '0x' + str(x) if int(x) >= 0 else '-0x' + str(-1 * x)
         if (ins_hex == -1): return
@@ -47,6 +48,7 @@ class Instruction:
         self.as_str[Ops.LUI]    = f'{self.opname:6}{appx(self.rd):>3},      {app0x(self.imm_u):>12}'
         self.as_str[Ops.BRANCH] = f'{self.opname:6}{appx(self.rs1):>3}, {appx(self.rs2):>3}  {app0x(self.imm_b):<12}'
         self.as_str[Ops.SYSTEM] = f'{self.opname:6}{appx(self.rs1):>3}, {appx(self.rs2):>3}  {app0x(self.imm_b):<12}'
+        self.as_str[Ops.STORE]  = f'{self.opname:6}{appx(self.rs1):>3}, ({self.ls_addr:x})'
         self.as_str_default     = f'{self.opname:6}{appx(self.rd):>3}, {appx(self.rs1):>3}, {appx(self.rs2):<12}'
         self.use_npc = False
         self.npc = 0x0
@@ -70,6 +72,7 @@ class Instruction:
 
 
     def set_control_signals(self, pc):
+        self.pc = pc
         if (self.opcode == Ops.NOP):
             return
 
@@ -87,19 +90,14 @@ class Instruction:
                 self.npc = pc + self.imm_b
                 self.use_npc = True
                 print(f'{self.imm_b} {pc:x}')
-            # else:
-                # self.npc = pc + 4
         elif (self.opcode == Ops.IMM):
-            # self.wen = True                     ###
             pass
         elif(self.opcode == Ops.AUIPC):
             self.wdat = pc + self.imm_u
-            # self.wen = True                     ###
 
         elif (self.opcode == Ops.JALR):
             self.npc = (self.imm_i + self.rdat1 + 4) & 0xFFFFFFFE
             self.wdat = pc + 4
-            # self.wen = True
             self.use_npc = True
 
 
@@ -112,9 +110,7 @@ class Instruction:
 
         elif (self.opcode == Ops.LOAD):
             self.ls_addr = self.rdat1 + self.imm_i
-            # self.wsel = 
-            # self.wen = True
-
+            
         elif (self.opcode == Ops.STORE):
             self.ls_addr = self.rdat1 + self.imm_s
             if (self.funct3 == Funct3.SW):
@@ -124,6 +120,7 @@ class Instruction:
             if (self.funct3 == Funct3.SB):
                 self.wdat = self.rdat2 & 0xFF
             self.wen = False
+            print(f"{self.ls_addr:x}")
 
         elif(self.opcode == Ops.MISC):
             self.wen = False
@@ -139,18 +136,7 @@ class Instruction:
         # CSRRW reads the old value of the CSR, zero-extends the value to XLEN bits,
         # then writes it to integer register rd. The initial value in rs1 is written to the CSR
             if self.funct3 == Funct3.ECALL:
-                # if self.funct3 == Funct3.ECALL:
-                    #These 2 lines are used for testing with the riscv-tests repository
-                if self.imm_i_unsigned == 302:
-                    pass
-                # elif self.regs[3] > 1:
-                elif self.regs[3] != 1:
-                    raise Fail("Failure in test %x" % self.regs[3])
-                elif self.regs[3] == 1:
-                    print("SUCCESS")
-                    raise Success("Success")
-                    # tests passed successfully
-
+                self.wdat = self.regs[3]
             # self.csr_addr = self.imm_i_unsigned
         else:
             pass

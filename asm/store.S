@@ -4,15 +4,14 @@
 _start:                                                                 
 .balign 4;                                                       
 
-li x1, 0
+lui x1, 0x80000
 li x2, 4
-beq x1, x2, blabel1
 li x10, 1
 nop
 nop
 nop
 nop
-beq x2, x0, blabel1
+sw x2, 0(x1)
 li x11, 1
 
 blabel1:
