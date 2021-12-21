@@ -65,7 +65,7 @@ class TestForward(unittest.TestCase):
     #     self.assertEqual(10, self.datapath.s2.regs[14])
 
     def test_fwd_store(self):
-        FILENAME = "asm/load_forward.o"
+        FILENAME = "asm/store_forward.o"
         self.datapath.run(FILENAME)
         # self.assertEqual(2, self.datapath.s2.regs[10])
         self.assertEqual(0xd, self.datapath.ram[ADDR_BASE])
