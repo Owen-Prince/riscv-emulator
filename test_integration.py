@@ -50,10 +50,26 @@ class TestForward(unittest.TestCase):
     def setUp(self):
         self.datapath = Datapath(test_exit)
         
-    def test_de_ex(self):
-        FILENAME = "asm/de_ex_forward.o"
+#     def test_de_ex(self):
+#         FILENAME = "asm/de_ex_forward.o"
+#         self.datapath.run(FILENAME)
+#         self.assertEqual(1, self.datapath.s2.regs[10])
+        
+    # def test_fwd_arith(self):
+    #     FILENAME = "asm/ex_forward.o"
+    #     self.datapath.run(FILENAME)
+    #     self.assertEqual(2, self.datapath.s2.regs[10])
+    #     self.assertEqual(3, self.datapath.s2.regs[11])
+    #     self.assertEqual(4, self.datapath.s2.regs[12])
+    #     self.assertEqual(7, self.datapath.s2.regs[13])
+    #     self.assertEqual(10, self.datapath.s2.regs[14])
+
+    def test_fwd_store(self):
+        FILENAME = "asm/load_forward.o"
         self.datapath.run(FILENAME)
-        self.assertEqual(1, self.datapath.s2.regs[10])
+        # self.assertEqual(2, self.datapath.s2.regs[10])
+        self.assertEqual(0xd, self.datapath.ram[ADDR_BASE])
+
         
 
 if __name__ == '__main__':

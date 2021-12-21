@@ -4,7 +4,7 @@ class Instruction:
     def __init__(self, ins_hex, regs=None):
         self.pc = 0x0
         appx = lambda x : 'x' + str(x) 
-        app0x = lambda x : '0x' + str(x) if int(x) >= 0 else '-0x' + str(-1 * x)
+        app0x = lambda x : '0x' + str(hex(x)[2:]) if int(x) >= 0 else '-0x' + str(hex(-1 * x)[2:])
         if (ins_hex == -1): return
         # if (gib(ins_hex, 6, 0) not in list(Ops)): print("ERROR: %s", ins_hex)
         self.opcode = Ops(gib(ins_hex, 6, 0))
