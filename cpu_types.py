@@ -1,5 +1,10 @@
 from enum import Enum, auto
 import struct
+
+class Success(Exception):
+    pass
+class Fail(Exception):
+    pass
 # RV32I Base Instruction Set
 
 class Ops(Enum):
@@ -79,14 +84,7 @@ class Aluop(Enum):
     OR = auto()
     AND = auto()
 
-
-
-
-
-
-    
-
-def get_aluop_d(funct3, funct7):
+def get_aluop_d(funct3: Funct3, funct7) -> Aluop:
     """map funct3 and funct7 to aluop control signal"""
     if funct3 == Funct3.ADD:
         return Aluop.ADD if (funct7 == 0) else Aluop.SUB
@@ -107,14 +105,13 @@ def get_aluop_d(funct3, funct7):
     else:
         raise Exception("Invalid Aluop %s" % funct3)
 
-def get_opname(op, f3):
+def get_opname(op: Ops, f3: Funct3) -> str:
     opname_dict = {
         (Ops.NOP, Funct3.ADDI)  : "NOP",
         Ops.LUI                 : "LUI",
         Ops.AUIPC               : "AUIPC",
         Ops.JAL                 : "JAL",
         (Ops.JALR, Funct3.JALR) : "JALR",
-
         (Ops.BRANCH, Funct3.BEQ) : "BEQ",
         (Ops.BRANCH, Funct3.BNE) : "BNE",
         (Ops.BRANCH, Funct3.BLT) : "BLT",
@@ -154,7 +151,7 @@ def get_opname(op, f3):
 
         (Ops.MISC, Funct3.ADD) : "FENCE",
 
-        (Ops.SYSTEM, Funct3.ADD) : "ECALL/EBREAK",
+        (Ops.SYSTEM, Funct3.ADD) : "EC/EBR",
         (Ops.SYSTEM, Funct3.CSRRW)  : "CSRRW",
         (Ops.SYSTEM, Funct3.CSRRS)  : "CSRRS",
         (Ops.SYSTEM, Funct3.CSRRC)  : "CSRRC",
@@ -166,17 +163,17 @@ def get_opname(op, f3):
         return opname_dict[op]
     return opname_dict[(op, f3)]
 
-def pad(s, l=8)->str:
+def pad(s, l=8) -> str:
     if len(s) >= l: return s[0:l]
     return "".join(["0" for i in range (l - len(s))]) + s
 
-def zext(s, w=8):
+def zext(s, w=8) -> str:
     if (len(("%x" % s)) < w):
         return ("%x" % s).zfill(w)
     else:
         return ("%x" % s)
 
-def unsigned(x, l=32):
+def unsigned(x, l=32) -> int:
     if (x < 0):
     # if (x >> 31) & 0x1 == 1:
     # if gib(x, l, l-1) == 1:
@@ -184,15 +181,15 @@ def unsigned(x, l=32):
     else:
         return x
 
-def sign_extend( x, l):
+def sign_extend( x, l) -> int:
     if x >> (l-1) == 1:
         return -((1 << l) - x)
     else:
         return x
 
-def gib(x, s, e):
+def gib(x, s, e) -> int:
     """x[s:e]"""
     return (x >> e) & ((1 << (s - e + 1))-1)
 
-def htoi(val):
+def htoi(val) -> int:
     return struct.unpack("<I", val)[0]
