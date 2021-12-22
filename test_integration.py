@@ -16,7 +16,6 @@ ADDR_BASE = 0x80000000
 
 
 FORMAT = '%(message)s'
-# print(f'{os.path}.log')
 logging.basicConfig(filename=f'trace.log', format=FORMAT, filemode='w', level=logging.INFO)
 logging.info("%s", f"{f'Stage':10}-- ({f'PC':8})")
 logging.info("%s", "-" * 23)
@@ -74,9 +73,3 @@ class TestForward(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestExecute)
-    # suite.addTest(TestExecute)
-    # suite = unittest.TestSuite()
-    # suite.addTest(TestUtils())
-    # runner = unittest.TextTestRunner(verbosity=2)
-    # runner.run(suite)

@@ -33,11 +33,9 @@ class ForwardingUnit:
         3. return the new instruction 
         """
         index = self.build_index()
-        # print(index)
         ins.rdat1 = index[ins.rs1] if ins.rs1 in index else ins.rdat1
         ins.rdat2 = index[ins.rs2] if ins.rs2 in index else ins.rdat2
         ins.set_control_signals(ins.pc)
-        # print(index)
         return ins
 
     def pop(self)->None:

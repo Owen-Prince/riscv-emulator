@@ -29,7 +29,6 @@ class TestForwarding(unittest.TestCase):
         for l in op_list:
             rd, wdat = l
             fwd.insert(rd, wdat)
-        # print(fwd)
         self.assertEqual(fwd.forward(rs1, rs2), expected)
 
 class TestBranch(unittest.TestCase):
@@ -53,13 +52,11 @@ class TestRam(unittest.TestCase):
     def test_ram (self):
         ram = Ram()
         ram[0x80000000] = struct.pack("I", 1234)
-        print(ram.memory[0:4])
         assert(struct.pack("I", 1234) == ram.memory[0:4])
     def test_load(self):
         FILENAME = "asm/branch.o"
         ram = Ram()
         ram.load(FILENAME)
-        print(ram.memory[0:100])
 
 class TestForwarding(unittest.TestCase):
     def setUp(self) -> None:
@@ -95,9 +92,3 @@ class TestForwarding(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-    # suite = unittest.TestLoader().loadTestsFromTestCase(TestExecute)
-    # suite.addTest(TestExecute)
-    # suite = unittest.TestSuite()
-    # suite.addTest(TestUtils())
-    # runner = unittest.TextTestRunner(verbosity=2)
-    # runner.run(suite)

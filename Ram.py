@@ -11,7 +11,6 @@ class Ram():
         self.size = 0x10000
         self.base_addr = base_addr
         self.memory = b'\x00'*self.size
-        print(len(self.memory))
 
     def __getitem__(self, key):
         key -= 0x80000000
@@ -23,10 +22,7 @@ class Ram():
 
     def __setitem__(self, key, val):
         key -= 0x80000000
-        # if not (key >=0 and key < len(self.memory)): 
-        #     print(f"{key + 0x80000000:x}")
         assert key >=0 and key < len(self.memory)
-        # print(struct.pack("I", val))
         self.memory = self.memory[:key] + val + self.memory[key+len(val):]
 
     def load(self, filename):

@@ -75,7 +75,6 @@ class Fetch(Stage):
         self.ins_hex = self.fetch(self.pc)
         self.ins = Instruction(self.ins_hex)
         self.prev_pc = self.pc
-        # print(f"\nFetch: {self.pc:x}, {self.ins}")
 
 
         self.format = lambda : f"{self.name:10s}-- ({self.pc:8x}): ins_hex = {pad(hex(self.ins_hex)[2:])}{f' ':31}| npc = {pad(hex(self.npc)[2:])}, use_npc = {self.use_npc}"
@@ -95,8 +94,6 @@ class Fetch(Stage):
             self.ins = Instruction(self.ins_hex)
             logging.info("%s", self.format())
 
-            # super().tick(self)
-            # print(f"Fetch: {self.pc:x}, {self.ins}")
 
         
     def fetch(self, pc):
@@ -126,8 +123,6 @@ class Decode(Stage):
         self.prev_pc = prev.prev_pc
         super().tick(prev, fwd=fwd)
 
-        # if self.ins.opcode == Ops.BEQ or self.ins.opcode == Ops.BNE:
-        # print(f"PREVIOUS PC: {prev.prev_pc:x}")
 
     def update(self):
         """
@@ -136,8 +131,6 @@ class Decode(Stage):
         self.flush_logic()
         self.ins = Instruction(self.ins_hex, regs=self.regs)
         self.ins.set_control_signals(pc=self.pc)
-        # self.flush = self.ins.use_npc
-        # self.ins = 
 
 class Execute(Stage):
     """

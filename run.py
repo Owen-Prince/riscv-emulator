@@ -30,7 +30,6 @@ if __name__ == "__main__":
     # global ram
     if not os.path.isdir('test-cache'):
         os.mkdir('test-cache')
-        # IF using the riscv_test repository, use riscv_tests_exit
     filename = sys.argv[1]
     datapath = Datapath(test_exit, 0x80000000)
     datapath.run(filename)

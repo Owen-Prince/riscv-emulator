@@ -39,7 +39,6 @@ if __name__ == "__main__":
     for filename in filename_list:
         if filename.endswith('.dump'):
             continue
-        # IF using the riscv_test repository, use riscv_tests_exit
         datapath = Datapath(riscv_tests_exit, 0x80000000)
         datapath.run(filename)
         

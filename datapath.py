@@ -26,14 +26,11 @@ class Datapath():
         self.ram.load(filename)
         self.s1.ins_hex = self.s1.fetch(self.s1.pc)
         logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
-        # print(f"{self.s1.pc:x}")
         while(self.step()):
             self.inscnt += 1
-            # print(f'{self.s1.pc:x} {self.s2.pc:x}')
 
             logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
         print(self.s2.regs)
-        # print(self.memory.regs)
 
     def eval(self):
         """

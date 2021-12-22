@@ -33,7 +33,6 @@ class Instruction:
         self.aluop  = get_aluop_d(self.funct3, self.funct7)
 
         if regs is None:
-            # print("regs are none")
             self.rdat1  = 0
             self.rdat2  = 0
         else:
@@ -78,12 +77,6 @@ class Instruction:
 
         self.wen = self.opcode in [Ops.IMM, Ops.AUIPC, Ops.JALR, Ops.JAL, Ops.LOAD, Ops.LUI, Ops.OP]
         self.use_npc = self.opcode in [Ops.JALR, Ops.JAL]
-            # self.use_npc = True
-        # elif (self.opcode == Ops.BRANCH) and self.is_correct_prediction(self.rdat1, self.rdat2):
-        #     self.use_npc = True
-        #     self.npc = pc + self.imm_b
-
-        # self.use_npc = self.opcode in [Ops.JALR, Ops.JAL] or (self.opcode == Ops.BRANCH and not self.is_correct_prediction(self.rdat1, self.rdat2))
 
         if(self.opcode == Ops.BRANCH):
             if (self.take_branch(self.rdat1, self.rdat2)):
@@ -104,7 +97,6 @@ class Instruction:
         elif (self.opcode == Ops.JAL):
             self.wdat = pc + 4
             self.npc = (self.imm_j) + pc
-            # self.wen = True
             self.use_npc = True
 
 
@@ -127,7 +119,6 @@ class Instruction:
         #Right now this can just be pass- coherence related
 
         elif(self.opcode == Ops.LUI):
-            # self.wen = True
             self.wdat = self.imm_u
 
 
