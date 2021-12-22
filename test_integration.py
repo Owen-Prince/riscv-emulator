@@ -48,7 +48,7 @@ def test_exit(wdat):
 
 class TestForward(unittest.TestCase):
     def setUp(self):
-        self.datapath = Datapath(test_exit)
+        self.datapath = Datapath(test_exit, 0x80000000)
         
 #     def test_de_ex(self):
 #         FILENAME = "asm/de_ex_forward.o"

@@ -1,6 +1,7 @@
 # from support import Fail, ForwardingUnit, Ram, Success
 import logging
 import struct
+import copy
 
 from cpu_types import Fail, Success
 from ForwardingUnit import ForwardingUnit
@@ -10,13 +11,13 @@ from stages import Decode, Execute, Fetch, Memory, Writeback
 
 
 class Datapath():
-    def __init__(self, exit_func):
-        self.ram = Ram()
+    def __init__(self, exit_func, base_addr):
+        self.ram = Ram(base_addr=base_addr)
         self.s5  = Writeback(exit_func)
         self.s4  = Memory()
         self.s3  = Execute()
         self.s2  = Decode()
-        self.s1  = Fetch(self.ram)
+        self.s1  = Fetch(self.ram, pc=base_addr)
 
         self.inscnt = 0
 
@@ -31,6 +32,7 @@ class Datapath():
 
             logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
         print(self.s2.regs)
+        # print(self.memory.regs)
 
     def eval(self):
         """
@@ -50,6 +52,7 @@ class Datapath():
             
             # Memory <- Execute
             r = self.s4.tick(prev=self.s3, ram=self.ram, fwd=fwd)
+            self.ram = copy.copy(r)
             fwd.insert(ins=self.s4.ins)
 
             # print(r[0x80000000])
