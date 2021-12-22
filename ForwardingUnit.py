@@ -28,8 +28,9 @@ class ForwardingUnit:
 
     def forward(self, ins: Instruction)->Instruction:
         """
-        return rs1, rs2
-        rs1 : forwarded value of rs1
+        1. take original instruction, determine if values need to be forwarded
+        2. modify the values of rdat1 and rdat2 if necessary
+        3. return the new instruction 
         """
         index = self.build_index()
         # print(index)

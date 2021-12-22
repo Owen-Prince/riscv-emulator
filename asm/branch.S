@@ -8,10 +8,6 @@ li x1, 0
 li x2, 4
 beq x1, x2, blabel1
 li x10, 1
-nop
-nop
-nop
-nop
 beq x2, x0, blabel1
 li x11, 1
 

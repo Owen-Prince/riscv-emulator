@@ -2,6 +2,7 @@
 import logging
 import struct
 import copy
+from types import FunctionType
 
 from cpu_types import Fail, Success
 from ForwardingUnit import ForwardingUnit
@@ -11,7 +12,7 @@ from stages import Decode, Execute, Fetch, Memory, Writeback
 
 
 class Datapath():
-    def __init__(self, exit_func, base_addr):
+    def __init__(self, exit_func, base_addr: int):
         self.ram = Ram(base_addr=base_addr)
         self.s5  = Writeback(exit_func)
         self.s4  = Memory()
@@ -21,7 +22,7 @@ class Datapath():
 
         self.inscnt = 0
 
-    def run(self, filename):
+    def run(self, filename: str):
         self.ram.load(filename)
         self.s1.ins_hex = self.s1.fetch(self.s1.pc)
         logging.info("%s", f"CLK CYCLE : {self.inscnt} {f'-'*24}")
@@ -54,22 +55,12 @@ class Datapath():
             r = self.s4.tick(prev=self.s3, ram=self.ram, fwd=fwd)
             self.ram = copy.copy(r)
             fwd.insert(ins=self.s4.ins)
-
-            # print(r[0x80000000])
-            # for i in range(16):
-                # print(f"{i*4 + 0x80000000:x}")
-                # self.ram[0x80000000 + i*4] = struct.pack("I", r[0x80000000 + i*4])
-
-            # fwd.insert(rd=self.s4.ins.rd, wdat=self.s4.ins.wdat)
             
             # Execute <- Decode
             self.s3.tick(prev=self.s2, fwd=fwd)
             fwd.insert(ins=self.s3.ins)
-            # print(fwd.data)
-            # fwd.insert(rd=self.s3.ins.rd, wdat=self.s3.ins.wdat)
             
             # Decode <- Fetch
-            # print(fwd.forward(rs1=self.s2.ins.rs1, rs2=self.s2.ins.rs2))
             self.s2.tick(prev=self.s1, fwd=fwd)
 
             # Fetch
@@ -79,7 +70,6 @@ class Datapath():
             logging.info("%s", fwd)
             logging.info("-"*75)
 
-            # logging.info("-"*74)
         except:
             raise
 

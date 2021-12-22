@@ -14,7 +14,7 @@ from stages import ForwardingUnit, Ram
 BASE_ADDR = 0x80000000
 FORMAT = '%(message)s'
 
-logging.basicConfig(filename='test.log', format=FORMAT, filemode='w', level=logging.INFO)
+logging.basicConfig(filename='trace.log', format=FORMAT, filemode='w', level=logging.INFO)
 logging.info("%s", f"{f'Stage':10}-- ({f'PC':8})")
 logging.info("%s", "-" * 23)
 class TestForwarding(unittest.TestCase):
